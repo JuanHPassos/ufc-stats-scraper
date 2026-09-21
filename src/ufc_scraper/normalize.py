@@ -16,7 +16,7 @@ import re
 
 log = logging.getLogger(__name__)
 
-NULL_TOKENS = {"", "--", "-", "n/a"}
+NULL_TOKENS = {"", "--", "---", "-", "n/a"}
 
 # -- básicos ------------------------------------------------------------------
 

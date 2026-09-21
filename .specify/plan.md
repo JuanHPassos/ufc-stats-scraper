@@ -40,7 +40,7 @@ Regra de ouro: **uma parte só está concluída quando o critério de conclusão
 | 2 | Crawler completo (coleta do HTML bruto) | ✅ concluída (coleta completa em andamento) | `b03a018` |
 | 3 | Funções de normalização | ✅ concluída | `a8ae2d9` |
 | 4 | Parser de eventos e resumo das lutas | ✅ concluída (reconferir com eventos antigos) | `af71019` |
-| 5 | Parser de estatísticas totais e por round | ⬜ pendente | — |
+| 5 | Parser de estatísticas totais e por round | ✅ concluída | (preencher) |
 | 6 | Parser de golpes significativos por alvo e posição | ⬜ pendente | — |
 | 7 | Parser de lutadores | ⬜ pendente | — |
 | 8 | Validação, relatório de cobertura e exportação | ⬜ pendente | — |
@@ -564,7 +564,7 @@ alvo/posição ficam para a Parte 6.
 
 **Tarefas**
 
-- [ ] `parse/fight_stats.py`:
+- [x] `parse/fight_stats.py`:
   - `parse_totals(html, fight_id, settings) -> list[dict]` → 2 linhas (A e B) da
     seção "Totals". `fighter_id` vem do link da célula, **não do nome**.
   - `parse_round_totals(html, fight_id, settings) -> list[dict]` → 2 × N linhas
@@ -574,10 +574,10 @@ alvo/posição ficam para a Parte 6.
   - Descartar colunas de percentual (`Sig. str. %`, `Td %`).
   - Ordem A/B igual à do card (`fights.fighter_a_id`); se a página da luta listar
     em outra ordem, mapear pelo `fighter_id`.
-- [ ] `build_fight_stats(settings)` e `build_round_stats(settings)` em `parse/__init__.py`
+- [x] `build_fight_stats(settings)` e `build_round_stats(settings)` em `parse/__init__.py`
       escrevendo `fight_stats.csv` e `round_stats.csv` (com `scraped_at`, `source_url`).
-- [ ] Ligar `parse --table fight_stats|round_stats`.
-- [ ] `tests/test_parse_fight_stats.py`: fixture moderna (valores conferidos a olho
+- [x] Ligar `parse --table fight_stats|round_stats`.
+- [x] `tests/test_parse_fight_stats.py`: fixture moderna (valores conferidos a olho
       contra a fixture), fixture antiga (lista vazia), luta de 1 round, luta de 5 rounds.
 
 **Entregáveis:** `src/ufc_scraper/parse/fight_stats.py`, teste, CSVs.
@@ -600,7 +600,25 @@ print('rounds != totais:', (m.sig_str_landed != m.r).sum(), 'de', len(m))"
 
 **Notas de execução**
 
-_(vazio)_
+- 2026-09-21 — `parse/fight_stats.py` (`parse_totals`, `parse_round_totals`) + builders
+  `build_fight_stats`/`build_round_stats` (helper `_build_stats`). 205 testes. Rodado sobre a
+  coleta parcial (~100 eventos): 2 520 linhas em `fight_stats`, 6 118 em `round_stats`, 0 warnings.
+- Layout: 4 tabelas na página (totais, totais/round, sig. strikes, sig. strikes/round). As
+  tabelas são reconhecidas pelo **cabeçalho** (`_find_table`), e as colunas lidas por **posição**,
+  porque o cabeçalho por round tem um bug do site (`Td %` duplicado no lugar de `Td`).
+  `_find_table` tolera esse bug. Percentuais descartados.
+- Na tabela por round os `<thead>Round N</thead>` ficam **dentro** do `<tbody>`, cada um seguido
+  do seu `<tr>` — `_iter_round_rows` percorre os descendentes em ordem de documento.
+- Cada `<td>` tem 2 `<p>` (um por lutador); `fighter_id` vem do link da 1ª célula. A ordem é a
+  mesma das pessoas no topo da página (= `fights.fighter_a/b`).
+- `---` (três traços) adicionado a `NULL_TOKENS`.
+- Checagens sobre a coleta parcial: soma dos rounds == totais em **100 %** para todas as 7
+  colunas; `fighter_id ∈ {a, b}` 100 %; `sig_str ≤ total_str`, `landed ≤ attempted`,
+  `ctrl ≤ duração` sem violações; `max(round)` em `round_stats` == `end_round` em 896/896.
+- `FIGHT_STATS_COLUMNS`/`ROUND_STATS_COLUMNS` em `parse/__init__.py`; a Parte 6 acrescenta as
+  colunas por alvo/posição às mesmas tabelas.
+- **Pendência:** confirmar com lutas antigas que páginas sem tabela devolvem `[]` (o teste usa
+  HTML sintético; ainda não há fixture real dos anos 90).
 
 ---
 

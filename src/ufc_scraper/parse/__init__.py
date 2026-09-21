@@ -17,6 +17,7 @@ import pandas as pd
 from ..config import Settings
 from ..paths import cache_path, processed_dir, raw_dir
 from .events import EVENTS_COLUMNS, parse_event_card, parse_events_list
+from .fight_stats import TOTALS_COLUMNS, parse_round_totals, parse_totals
 from .fights import parse_fight_summary
 
 log = logging.getLogger(__name__)
@@ -30,6 +31,9 @@ FIGHTS_COLUMNS = [
     "referee", "judges_scores", "details_raw",
     "scraped_at", "source_url",
 ]
+
+FIGHT_STATS_COLUMNS = ["fight_id", "fighter_id", *TOTALS_COLUMNS, "scraped_at", "source_url"]
+ROUND_STATS_COLUMNS = ["fight_id", "fighter_id", "round", *TOTALS_COLUMNS, "scraped_at", "source_url"]
 
 # Campos do card que a página da luta também informa; divergência vira WARNING (card prevalece).
 _CHECK_FIELDS = ("winner_id", "result_type", "method", "end_round", "end_time_seconds")
@@ -190,7 +194,43 @@ def build_fights(settings: Settings) -> pd.DataFrame:
     return df
 
 
+# -- fight_stats / round_stats ------------------------------------------------
+
+
+def _build_stats(settings: Settings, parser, columns: list[str], name: str, keys: list[str]) -> pd.DataFrame:
+    """Percorre todas as páginas de luta salvas e aplica `parser`. Páginas sem tabela
+    (lutas antigas) não geram linha nenhuma — nulo, não zero."""
+    rows: list[dict] = []
+    without = 0
+    fight_ids = raw_ids(settings, "fights")
+    for fight_id in fight_ids:
+        recs = parser(read_raw(settings, "fight", fight_id), fight_id, settings)
+        if not recs:
+            without += 1
+        rows.extend(recs)
+    df = pd.DataFrame(rows, columns=columns)
+    for col in columns:
+        if col in TOTALS_COLUMNS or col == "round":
+            df[col] = df[col].astype("Int64")
+    dups = df.duplicated(keys).sum()
+    if dups:
+        log.error("%s: %d chaves duplicadas %s", name, dups, keys)
+    log.info("%s: %d linhas de %d lutas (%d sem tabela)", name, len(df), len(fight_ids), without)
+    write_csv(df, settings, name)
+    return df
+
+
+def build_fight_stats(settings: Settings) -> pd.DataFrame:
+    return _build_stats(settings, parse_totals, FIGHT_STATS_COLUMNS, "fight_stats", ["fight_id", "fighter_id"])
+
+
+def build_round_stats(settings: Settings) -> pd.DataFrame:
+    return _build_stats(settings, parse_round_totals, ROUND_STATS_COLUMNS, "round_stats", ["fight_id", "fighter_id", "round"])
+
+
 BUILDERS: dict[str, Callable[[Settings], pd.DataFrame]] = {
     "events": build_events,
     "fights": build_fights,
+    "fight_stats": build_fight_stats,
+    "round_stats": build_round_stats,
 }
