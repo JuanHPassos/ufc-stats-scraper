@@ -43,7 +43,7 @@ Regra de ouro: **uma parte só está concluída quando o critério de conclusão
 | 5 | Parser de estatísticas totais e por round | ✅ concluída | `d69ebcc` |
 | 6 | Parser de golpes significativos por alvo e posição | ✅ concluída | `5d49055` |
 | 7 | Parser de lutadores | ✅ concluída (critério de cobertura fica para o fim da coleta) | `e69b72f` |
-| 8 | Validação, relatório de cobertura e exportação | 🟨 código e testes prontos; rodar critério ao fim da coleta | (preencher) |
+| 8 | Validação, relatório de cobertura e exportação | 🟨 código e testes prontos; rodar critério ao fim da coleta | `2f46ca0` |
 | 9 | Modo incremental | ⬜ pendente | — |
 | 10 | Conferência manual e documentação final | ⬜ pendente | — |
 
