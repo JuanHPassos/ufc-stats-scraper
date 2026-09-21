@@ -9,13 +9,22 @@ Toda a coleta passa por `fetch(settings, kind, key)`:
 
 404 não faz retry: levanta `NotFound` e o chamador decide o que fazer.
 O arquivo é gravado como bytes crus (HTML bruto); a leitura decodifica em UTF-8.
+
+Desafio anti-bot: desde 2026-09 o site devolve, na primeira visita, uma
+interstitial "Checking your browser…" com um proof-of-work em JavaScript
+(sha256(nonce:n) até o hash começar com N zeros; POST /__c com nonce e n;
+recarregar). O `Fetcher` faz exatamente o que o navegador faria, na mesma
+`requests.Session` (o cookie de liberação fica nela), respeitando o mesmo
+rate limit. Ver `solve_challenge` e `Fetcher._pass_challenge`.
 """
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 import random
+import re
 import time
 from pathlib import Path
 from typing import Callable
@@ -32,6 +41,10 @@ RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 
 # Marcas da página de desafio anti-bot observada em 2026-09-21 (ver plano, Parte 1).
 CHALLENGE_MARKERS = (b"Checking your browser", b"/__c")
+CHALLENGE_PATH = "/__c"
+_NONCE_RE = re.compile(rb'var\s+nonce\s*=\s*"([0-9a-fA-F]+)"')
+_TARGET_RE = re.compile(rb"new Array\((\d+)\+1\)\.join\('0'\)")
+MAX_CHALLENGE_DIFFICULTY = 6  # 16^6 ≈ 16 M hashes; acima disso algo mudou no site
 
 
 class HttpError(Exception):
@@ -78,7 +91,7 @@ class Fetcher:
         self._clock = clock
         self._rng = rng or random.Random()
         self._last_request: float | None = None
-        self.stats = {"cache_hits": 0, "requests": 0, "retries": 0}
+        self.stats = {"cache_hits": 0, "requests": 0, "retries": 0, "challenges": 0}
 
     # -- API pública ----------------------------------------------------------
 
@@ -110,7 +123,7 @@ class Fetcher:
                 self._sleep(wait)
 
             try:
-                content = self._request(url)
+                content = self._get(url)
             except _Retryable as exc:
                 log.warning("%s: %s", exc, url)
                 continue
@@ -118,8 +131,40 @@ class Fetcher:
 
         raise FetchError(url, f"falhou após {attempts} tentativas")
 
+    def _get(self, url: str) -> bytes:
+        """Uma tentativa lógica: GET e, se vier a interstitial, resolve o desafio
+        e repete o GET uma única vez."""
+        content = self._request(url)
+        if not is_challenge_page(content):
+            return content
+        self._pass_challenge(content, url)
+        self._wait_rate_limit()
+        content = self._request(url)
+        if is_challenge_page(content):
+            raise ChallengeRequired(url, "interstitial persiste após resolver o desafio")
+        return content
+
+    def _pass_challenge(self, content: bytes, url: str) -> None:
+        nonce, difficulty = parse_challenge(content)
+        n = solve_challenge(nonce, difficulty)
+        self._wait_rate_limit()
+        post_url = self.settings.base_url + CHALLENGE_PATH
+        t0 = self._clock()
+        self.stats["requests"] += 1
+        try:
+            resp = self.session.post(post_url, data={"nonce": nonce, "n": n}, timeout=self.settings.timeout)
+        except (requests.ConnectionError, requests.Timeout) as exc:
+            raise _Retryable(type(exc).__name__) from exc
+        finally:
+            self._last_request = self._clock()
+            elapsed_ms = int((self._last_request - t0) * 1000)
+        log.info("POST %s -> %d (%d ms) [desafio nonce=%s n=%d]", post_url, resp.status_code, elapsed_ms, nonce, n)
+        if not 200 <= resp.status_code < 300:
+            raise ChallengeRequired(url, f"POST {CHALLENGE_PATH} -> {resp.status_code}")
+        self.stats["challenges"] += 1
+
     def _request(self, url: str) -> bytes:
-        """Uma tentativa. Levanta `_Retryable` quando vale tentar de novo."""
+        """Um GET. Levanta `_Retryable` quando vale tentar de novo."""
         s = self.settings
         t0 = self._clock()
         self.stats["requests"] += 1
@@ -135,8 +180,6 @@ class Fetcher:
         log.info("GET %s -> %d (%d ms)", url, status, elapsed_ms)
 
         if status == 200:
-            if is_challenge_page(resp.content):
-                raise ChallengeRequired(url, "página de desafio anti-bot em vez do conteúdo")
             return resp.content
         if status == 404:
             raise NotFound(url, "404")
@@ -167,6 +210,29 @@ def is_challenge_page(content: bytes) -> bool:
     """
     head = content[:4096]
     return all(marker in head for marker in CHALLENGE_MARKERS)
+
+
+def parse_challenge(content: bytes) -> tuple[str, int]:
+    """Extrai (nonce, dificuldade) do script da interstitial."""
+    m_nonce = _NONCE_RE.search(content)
+    m_target = _TARGET_RE.search(content)
+    if not m_nonce or not m_target:
+        raise ValueError("não achei nonce/target no script do desafio; o site mudou?")
+    difficulty = int(m_target.group(1))
+    if not 1 <= difficulty <= MAX_CHALLENGE_DIFFICULTY:
+        raise ValueError(f"dificuldade fora do esperado: {difficulty}")
+    return m_nonce.group(1).decode("ascii"), difficulty
+
+
+def solve_challenge(nonce: str, difficulty: int) -> int:
+    """Menor n tal que sha256(f"{nonce}:{n}") começa com `difficulty` zeros hex."""
+    prefix = "0" * difficulty
+    base = f"{nonce}:".encode("ascii")
+    n = 0
+    while True:
+        if hashlib.sha256(base + str(n).encode("ascii")).hexdigest().startswith(prefix):
+            return n
+        n += 1
 
 
 class _Retryable(Exception):

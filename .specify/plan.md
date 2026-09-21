@@ -36,7 +36,7 @@ Regra de ouro: **uma parte só está concluída quando o critério de conclusão
 | Parte | Título | Estado | Commit |
 | --- | --- | --- | --- |
 | 0 | Bootstrap do projeto | ✅ concluída | `ed91d72` |
-| 1 | Cliente HTTP com cache, rate limit e retry | 🟨 em andamento (código pronto; smoke test bloqueado por desafio anti-bot) | — |
+| 1 | Cliente HTTP com cache, rate limit e retry | ✅ concluída | (preencher) |
 | 2 | Crawler completo (coleta do HTML bruto) | ⬜ pendente | — |
 | 3 | Funções de normalização | ⬜ pendente | — |
 | 4 | Parser de eventos e resumo das lutas | ⬜ pendente | — |
@@ -226,7 +226,7 @@ da spec §6) quando não existe. Todo o resto do crawler depende só dela.
   - `404` → `NotFound` sem retry;
   - rate limit: duas chamadas reais em sequência chamam `sleep` com valor no
     intervalo `[delay_min, delay_max]`.
-- [ ] Smoke test manual (única vez que esta parte toca a rede): baixar a lista de
+- [x] Smoke test manual (única vez que esta parte toca a rede): baixar a lista de
       eventos e confirmar cache.
 
 **Entregáveis:** `src/ufc_scraper/http.py`, `tests/test_http.py`.
@@ -260,6 +260,15 @@ ls data/raw/2026-09-21/events_list.html
   levanta `ChallengeRequired` e **nunca grava** essa página no cache. Decisão sobre como
   prosseguir (resolver o desafio no cliente, com os mesmos limites de taxa, ou outra rota)
   fica com o grupo — ver conversa/commit. Só 1 GET real foi feito ao site nesta parte.
+- **Decisão (2026-09-21): resolver o desafio no cliente.** `parse_challenge` extrai `nonce` e
+  dificuldade do script; `solve_challenge` acha o menor `n`; `Fetcher._pass_challenge` faz
+  `POST /__c` na mesma `requests.Session` (cookie `_fmc` fica nela) e `_get` repete o GET uma
+  única vez. Tudo respeita o rate limit. Se a interstitial persistir ou o POST falhar,
+  `ChallengeRequired` (não retryable). Guarda-rails: dificuldade aceita 1–6; script fora do
+  padrão levanta `ValueError` (o site mudou de novo). 44 testes no total.
+- Smoke test OK: GET → interstitial → POST /__c 204 (`n=20`) → GET 200 com 629 KB e 790 links
+  `/event-details/`; segunda chamada veio do cache. 3 requisições reais ao site nesta rodada.
+- Spec §2 e §6 atualizadas com a premissa corrigida e o resultado do `robots.txt`.
 
 ---
 

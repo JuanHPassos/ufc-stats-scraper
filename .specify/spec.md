@@ -14,7 +14,9 @@ O scraper não faz análise. Ele entrega uma base limpa, relacional e reprodutí
 
 ## 2. Escopo e estrutura do site
 
-O site é HTML estático, sem login nem JavaScript necessário. Cada entidade tem um ID hexadecimal na URL, que será a chave primária.
+O site é HTML estático, sem login. Cada entidade tem um ID hexadecimal na URL, que será a chave primária.
+
+> **Atualização 2026-09-21.** Na primeira visita de uma sessão o site devolve uma página intermediária ("Checking your browser…") com um desafio proof-of-work em JavaScript: `sha256(nonce:n)` até o hash começar com N zeros, `POST /__c` com `nonce` e `n`, e recarregar. O POST define o cookie `_fmc`, que libera as páginas seguintes. O cliente HTTP do scraper resolve esse desafio automaticamente na mesma sessão, com o mesmo rate limit e o mesmo User-Agent identificável — o conteúdo continua sendo HTML estático depois disso. Decisão do grupo em 2026-09-21.
 
 | Página | URL | O que contém |
 | --- | --- | --- |
@@ -195,7 +197,7 @@ Regras adicionais:
 | Reprodutibilidade | cada coleta vai para uma pasta com a data; a análise usa uma coleta fixa |
 | Configuração | intervalo, pasta de saída e modo (completo/incremental) em arquivo ou argumentos de linha de comando |
 
-Antes da primeira execução, ler o `robots.txt` e os termos do site.
+Antes da primeira execução, ler o `robots.txt` e os termos do site. (`robots.txt` verificado em 2026-09-21: não existe — HTTP 404.)
 
 A carga completa leva algumas horas (cerca de 13 mil páginas). Deve rodar sem supervisão.
 
