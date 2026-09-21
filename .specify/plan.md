@@ -21,7 +21,9 @@ arquivo, ver onde parou e continuar sem precisar reconstruir contexto.
    - marque as caixas de tarefa `[x]` na seção da parte;
    - rode o **Critério de conclusão** e cole a saída resumida em *Notas de execução*;
    - faça **um commit** com mensagem `parte N: <título>`;
-   - atualize a tabela Status (estado + hash do commit).
+   - atualize a tabela Status (estado + hash do commit). Como o hash só existe
+     depois do commit, registre-o num commit `docs: registra hash da parte N`
+     logo em seguida (ou junto do próximo commit de trabalho).
 5. Se precisar interromper no meio de uma parte, escreva em *Notas de execução*
    da parte **o que já está feito, o que falta e qualquer decisão tomada**. Não
    deixe código sem teste passando no commit; se necessário, commit com prefixo
@@ -33,7 +35,7 @@ Regra de ouro: **uma parte só está concluída quando o critério de conclusão
 
 | Parte | Título | Estado | Commit |
 | --- | --- | --- | --- |
-| 0 | Bootstrap do projeto | ✅ concluída | (preencher) |
+| 0 | Bootstrap do projeto | ✅ concluída | `ed91d72` |
 | 1 | Cliente HTTP com cache, rate limit e retry | ⬜ pendente | — |
 | 2 | Crawler completo (coleta do HTML bruto) | ⬜ pendente | — |
 | 3 | Funções de normalização | ⬜ pendente | — |
