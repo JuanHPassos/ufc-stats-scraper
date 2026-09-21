@@ -38,7 +38,7 @@ Regra de ouro: **uma parte só está concluída quando o critério de conclusão
 | 0 | Bootstrap do projeto | ✅ concluída | `ed91d72` |
 | 1 | Cliente HTTP com cache, rate limit e retry | ✅ concluída | `0424a96` |
 | 2 | Crawler completo (coleta do HTML bruto) | ✅ concluída (coleta completa em andamento) | `b03a018` |
-| 3 | Funções de normalização | ✅ concluída | (preencher) |
+| 3 | Funções de normalização | ✅ concluída | `a8ae2d9` |
 | 4 | Parser de eventos e resumo das lutas | ⬜ pendente | — |
 | 5 | Parser de estatísticas totais e por round | ⬜ pendente | — |
 | 6 | Parser de golpes significativos por alvo e posição | ⬜ pendente | — |
