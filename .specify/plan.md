@@ -45,7 +45,7 @@ Regra de ouro: **uma parte só está concluída quando o critério de conclusão
 | 7 | Parser de lutadores | ✅ concluída (critério de cobertura fica para o fim da coleta) | `e69b72f` |
 | 8 | Validação, relatório de cobertura e exportação | 🟨 código e testes prontos; rodar critério ao fim da coleta | `2f46ca0` |
 | 9 | Modo incremental | 🟨 código, testes e README prontos; rodar critério ao fim da coleta | `d0bba24` |
-| 10 | Conferência manual e documentação final | ⬜ pendente | — |
+| 10 | Conferência manual e documentação final | 🟨 script e README prontos; conferência manual e spec ao fim da coleta | (preencher) |
 
 Estados: `⬜ pendente` · `🟨 em andamento` · `✅ concluída`
 
@@ -897,14 +897,14 @@ projeto pronto para o grupo usar na análise.
 
 **Tarefas**
 
-- [ ] Script `scripts/sample_fights.py --n 10 --seed 42` que sorteia 10 lutas
+- [x] Script `scripts/sample_fights.py --n 10 --seed 42` que sorteia 10 lutas
       estratificadas por década (≥ 2 de antes de 2005, ≥ 2 de 2005–2015, ≥ 2 de
       2016+) e imprime, para cada uma, `source_url` e todas as colunas de `fights`,
       `fight_stats` e `round_stats`.
 - [ ] Conferir campo a campo com o site e registrar o resultado em
       `.specify/manual_check.md` (tabela: fight_id, URL, campos divergentes, ação).
       Toda divergência vira correção no parser + teste de regressão com a fixture.
-- [ ] README final: dicionário de dados (colunas das 5 tabelas com tipo e
+- [x] README final: dicionário de dados (colunas das 5 tabelas com tipo e
       observação), como reproduzir uma coleta, como rodar validação, e a seção
       "Decisões" copiada da spec §8 (para quem for analisar saber que
       estatísticas de carreira do perfil **não** devem ser usadas como feature).
@@ -924,7 +924,20 @@ test -f .specify/manual_check.md && grep -c '^| ' .specify/manual_check.md   # �
 
 **Notas de execução**
 
-_(vazio)_
+- 2026-09-21 — feito o que não depende da coleta: `ufc_scraper/sample.py` (lógica testável:
+  `sample_fights` estratificado por era com cota mínima e rodízio, `render_fight`,
+  `manual_check_template`) + `scripts/sample_fights.py` (wrapper; `--template` gera a tabela
+  vazia de `.specify/manual_check.md`); README final com dicionário de dados das 5 tabelas,
+  8 avisos para a análise (spec §8 + decisões das Partes 4–7), relatórios e estrutura do
+  código. 280 testes.
+- **Falta (depende da coleta completa):**
+  1. `uv run python scripts/sample_fights.py --n 10 --seed 42 --date 2026-09-21 --template .specify/manual_check.md`
+     (hoje a amostra só tem 2016+; com a coleta completa as três eras entram);
+  2. conferir as 10 lutas no site, preencher `.specify/manual_check.md`; divergência →
+     correção + fixture + teste de regressão;
+  3. atualizar spec §8 "Questões em aberto" com os anos do `coverage_report.md` e o
+     formato escolhido (Parquet e SQLite estão ambos implementados);
+  4. marcar o plano como concluído.
 
 ---
 
