@@ -38,7 +38,7 @@ Regra de ouro: **uma parte só está concluída quando o critério de conclusão
 | 0 | Bootstrap do projeto | ✅ concluída | `ed91d72` |
 | 1 | Cliente HTTP com cache, rate limit e retry | ✅ concluída | `0424a96` |
 | 2 | Crawler completo (coleta do HTML bruto) | ✅ concluída (coleta completa em andamento) | `b03a018` |
-| 3 | Funções de normalização | ⬜ pendente | — |
+| 3 | Funções de normalização | ✅ concluída | (preencher) |
 | 4 | Parser de eventos e resumo das lutas | ⬜ pendente | — |
 | 5 | Parser de estatísticas totais e por round | ⬜ pendente | — |
 | 6 | Parser de golpes significativos por alvo e posição | ⬜ pendente | — |
@@ -378,38 +378,40 @@ Parte 2 sem conflito, mas a ordem sequencial oficial é após a Parte 2).
 
 **Tarefas** — todas em `normalize.py`, todas retornando `None` para `"--"`, `""`, `None`:
 
-- [ ] `clean_text(s) -> str | None` — colapsa espaços/quebras, `strip`, mantém acentos.
-- [ ] `parse_of(s) -> tuple[int | None, int | None]` — `"45 of 102" -> (45, 102)`.
-- [ ] `parse_int(s) -> int | None`.
-- [ ] `parse_mmss(s) -> int | None` — `"3:24" -> 204`; `"--" -> None`; tolerar `"15:00"`.
-- [ ] `parse_height(s) -> float | None` — `"5' 11\"" -> 180.3` (1 casa decimal).
-- [ ] `parse_reach(s) -> float | None` — `"72\"" -> 182.9`.
-- [ ] `parse_weight(s) -> float | None` — `"155 lbs." -> 70.3`.
-- [ ] `parse_date(s) -> str | None` — `"Mar. 15, 2025" -> "2025-03-15"`; também
+- [x] `clean_text(s) -> str | None` — colapsa espaços/quebras, `strip`, mantém acentos.
+- [x] `parse_of(s) -> tuple[int | None, int | None]` — `"45 of 102" -> (45, 102)`.
+- [x] `parse_int(s) -> int | None`.
+- [x] `parse_mmss(s) -> int | None` — `"3:24" -> 204`; `"--" -> None`; tolerar `"15:00"`.
+- [x] `parse_height(s) -> float | None` — `"5' 11\"" -> 180.3` (1 casa decimal).
+- [x] `parse_reach(s) -> float | None` — `"72\"" -> 182.9`.
+- [x] `parse_weight(s) -> float | None` — `"155 lbs." -> 70.3`.
+- [x] `parse_date(s) -> str | None` — `"Mar. 15, 2025" -> "2025-03-15"`; também
       `"March 15, 2025"` e `"Mar 15, 2025"` (sem ponto).
-- [ ] `parse_time_format(s) -> int | None` — `"5 Rnd (5-5-5-5-5)" -> 5`;
+- [x] `parse_time_format(s) -> int | None` — `"5 Rnd (5-5-5-5-5)" -> 5`;
       `"3 Rnd (5-5-5)" -> 3`; `"1 Rnd + OT (12-3)" -> 1`; `"No Time Limit" -> None`.
-- [ ] `parse_percent` **não existe**: percentuais são descartados (spec §5).
-- [ ] `normalize_method(s) -> tuple[str, str | None]` — retorna `(method, method_detail)`
+- [x] ~~`parse_percent` não existe~~ **Corrigido:** `parse_percent("43%") -> 0.43` existe, mas é
+      **só para as estatísticas de carreira do perfil** (não há landed/attempted para recalcular).
+      Nas tabelas de luta os percentuais continuam descartados (spec §5).
+- [x] `normalize_method(s) -> tuple[str, str | None]` — retorna `(method, method_detail)`
       a partir das duas linhas da coluna Method. Conjunto fixo:
       `KO/TKO, SUB, U-DEC, S-DEC, M-DEC, DQ, OVERTURNED, CNC, OTHER`. Valor fora do
       conjunto: log `WARNING` e retorna `("OTHER", s)`. Manter dicionário `METHOD_MAP`
       exportado.
-- [ ] `went_to_decision(method) -> bool` — `True` para `U-DEC, S-DEC, M-DEC`.
-- [ ] `normalize_weight_class(s) -> tuple[str, bool, bool]` — retorna
+- [x] `went_to_decision(method) -> bool` — `True` para `U-DEC, S-DEC, M-DEC`.
+- [x] `normalize_weight_class(s) -> tuple[str, bool, bool]` — retorna
       `(weight_class, is_title_fight, is_women)`. Remove `"UFC "`, `" Title Bout"`,
       `" Bout"`, `"Women's "`; conjunto fixo: `Strawweight, Flyweight, Bantamweight,
       Featherweight, Lightweight, Welterweight, Middleweight, Light Heavyweight,
       Heavyweight, Super Heavyweight, Catch Weight, Open Weight`. Fora do conjunto:
       log `WARNING`, retorna o texto limpo. Manter `WEIGHT_CLASS_MAP` exportado.
-- [ ] `parse_judges(details) -> list[dict] | None` — `"Sal D'Amato 29 - 28. Derek Cleary 29 - 28."`
+- [x] `parse_judges(details) -> list[dict] | None` — `"Sal D'Amato 29 - 28. Derek Cleary 29 - 28."`
       → `[{"judge": "Sal D'Amato", "score_a": 29, "score_b": 28}, ...]`. Se o padrão
       não bater, `None` (o texto original fica em `details_raw`).
-- [ ] `total_fight_seconds(end_round, end_time_seconds, time_format_raw) -> int | None` —
+- [x] `total_fight_seconds(end_round, end_time_seconds, time_format_raw) -> int | None` —
       soma dos rounds anteriores (a partir da duração de cada round no formato,
       ex.: `(5-5-5)`) + `end_time_seconds`. Se o formato for desconhecido, assume
       5 min por round e loga `WARNING` uma vez.
-- [ ] `tests/test_normalize.py` — um caso por linha da tabela da spec §5 mais os
+- [x] `tests/test_normalize.py` — um caso por linha da tabela da spec §5 mais os
       casos-limite listados acima (`"--"`, vazio, `None`, espaços extras).
 
 **Entregáveis:** `src/ufc_scraper/normalize.py`, `tests/test_normalize.py`.
@@ -422,7 +424,25 @@ uv run pytest -q tests/test_normalize.py     # ≥ 40 casos, todos passam
 
 **Notas de execução**
 
-_(vazio)_
+- 2026-09-21 — `normalize.py` com 106 testes (163 no total). Antes de codar, levantei os valores
+  reais em ~40 eventos / 377 lutas / 78 lutadores já baixados; depois apliquei todas as funções
+  sobre esses ~30 mil valores: **0 `ValueError`, 0 categorias/métodos não mapeados.**
+- Extras além do plano: `parse_float`, `parse_percent` (perfil), `round_durations(fmt)`
+  (`"3 Rnd (10-5-5)" -> [10, 5, 5]`, usado por `total_fight_seconds`) e `parse_record`
+  (`"Record: 9-4-0 (1 NC)" -> (9, 4, 0, 1)`).
+- `METHOD_MAP` cobre as **duas formas** do site: abreviada no card (`U-DEC`, `S-DEC`, `M-DEC`,
+  `KO/TKO`, `SUB`, `CNC`, `DQ`, `Overturned`) e por extenso na página da luta
+  (`Decision - Unanimous`, `Submission`, `Could Not Continue`).
+- `normalize_weight_class` remove `UFC `, `Interim `, `Undisputed `, ` Title Bout`, ` Bout`,
+  `Women's `; `is_title_fight` = contém "title" (inclui interinos).
+- Datas reais: `Sep 27, 2000`, `August 01, 2026`, `Mar. 15, 2025` — todas cobertas. Stance pode
+  vir vazio (`None`).
+- **Para a Parte 4:** em lutas *overturned* o `Details:` tem uma linha de motivo
+  (`Failed Drug Test by Idiris`) **antes** das notas dos juízes (luta `7ffdaa44fc8d111b`).
+  O parser deve passar as linhas de `Details:` **separadamente** a `parse_judges` (juntar com
+  espaço gruda o motivo no 1º nome). `parse_judges` rejeita nomes com > 4 palavras como
+  salvaguarda. Também: na página da luta o `W/L` do card vem como `win` / `draw draw` / `nc nc`
+  (o texto repete porque há um `<i>` por lutador).
 
 ---
 
