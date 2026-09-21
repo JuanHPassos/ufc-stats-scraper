@@ -73,10 +73,24 @@ def cmd_crawl(args: argparse.Namespace, settings: Settings) -> int:
     return 1 if report.failed else 0
 
 
+def cmd_parse(args: argparse.Namespace, settings: Settings) -> int:
+    from .parse import BUILDERS
+
+    if args.table and args.table not in BUILDERS:
+        return _not_implemented(f"parse --table {args.table}")
+    tables = [args.table] if args.table else list(BUILDERS)
+    for name in tables:
+        log.info("parse %s", name)
+        BUILDERS[name](settings)
+    return 0
+
+
 def run(args: argparse.Namespace, settings: Settings) -> int:
     """Despacha o subcomando. Cada parte do plano substitui o stub correspondente."""
     if args.command == "crawl":
         return cmd_crawl(args, settings)
+    if args.command == "parse":
+        return cmd_parse(args, settings)
     return _not_implemented(args.command)
 
 

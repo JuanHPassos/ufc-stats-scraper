@@ -245,6 +245,12 @@ def normalize_method(method: str | None, detail: str | None = None) -> tuple[str
     if m is None:
         return (None, d)
     canonical = METHOD_MAP.get(m.lower())
+    if canonical is None and " - " in m:
+        # "TKO - Doctor's Stoppage": prefixo conhecido + detalhe
+        head, tail = m.split(" - ", 1)
+        canonical = METHOD_MAP.get(head.strip().lower())
+        if canonical is not None:
+            d = d or clean_text(tail)
     if canonical is None:
         log.warning("método não mapeado: %r", m)
         return ("OTHER", d or m)
@@ -265,36 +271,31 @@ WEIGHT_CLASSES = (
 WEIGHT_CLASS_MAP: dict[str, str] = {w.lower(): w for w in WEIGHT_CLASSES}
 WEIGHT_CLASS_MAP.update({"catchweight": "Catch Weight", "openweight": "Open Weight"})
 
-_WC_STRIP = ("ufc ", "interim ", "undisputed ")
-_WC_SUFFIX = (" title bout", " bout")
+# Mais longos primeiro, para "Light Heavyweight" não casar como "Heavyweight".
+_WC_ORDERED = sorted(WEIGHT_CLASS_MAP, key=len, reverse=True)
 
 
 def normalize_weight_class(s: str | None) -> tuple[str | None, bool | None, bool | None]:
     """"UFC Women's Strawweight Title Bout" -> ("Strawweight", True, True).
 
-    Fora do conjunto: WARNING e devolve o texto limpo (sem os prefixos/sufixos).
+    Procura a categoria como substring, então tolera qualquer prefixo/sufixo
+    ("UFC Interim … Title Bout", "Road to UFC 4 … Tournament Title Bout",
+    "Ultimate Fighter 33 … Tournament Title Bout"). `is_title_fight` = contém
+    "title" (inclui interinos e títulos de torneio; o texto original fica em
+    `weight_class_raw`). Fora do conjunto: WARNING e devolve o texto limpo.
     """
     t = clean_text(s)
     if t is None:
         return (None, None, None)
     low = t.lower()
     is_title = "title" in low
-    for suf in _WC_SUFFIX:
-        if low.endswith(suf):
-            low = low[: -len(suf)]
-            break
-    for pre in _WC_STRIP:
-        if low.startswith(pre):
-            low = low[len(pre):]
-    is_women = low.startswith("women's ")
-    if is_women:
-        low = low[len("women's "):]
-    low = low.strip()
-    canonical = WEIGHT_CLASS_MAP.get(low)
-    if canonical is None:
-        log.warning("categoria não mapeada: %r", t)
-        canonical = " ".join(w.capitalize() for w in low.split()) or t
-    return (canonical, is_title, is_women)
+    is_women = "women's" in low or "women’s" in low
+    for key in _WC_ORDERED:
+        if re.search(r"(?<![a-z])" + re.escape(key) + r"(?![a-z])", low):
+            return (WEIGHT_CLASS_MAP[key], is_title, is_women)
+    log.warning("categoria não mapeada: %r", t)
+    cleaned = re.sub(r"\s+(title\s+)?bout$", "", low).strip()
+    return (" ".join(w.capitalize() for w in cleaned.split()) or t, is_title, is_women)
 
 
 # -- placares dos juízes ------------------------------------------------------
@@ -305,7 +306,11 @@ MAX_JUDGE_WORDS = 4
 
 def parse_judges(details: str | None) -> list[dict] | None:
     """"Sal D'Amato 29 - 28. Derek Cleary 29 - 28." ->
-    [{"judge": "Sal D'Amato", "score_a": 29, "score_b": 28}, ...].
+    [{"judge": "Sal D'Amato", "score_1": 29, "score_2": 28}, ...].
+
+    `score_1`/`score_2` são a ORDEM LITERAL do site, que não corresponde à ordem
+    dos lutadores na página (observado: o vencedor é o 2º número). A atribuição
+    a fighter_a/fighter_b é feita no builder de `fights`, pela maioria dos juízes.
 
     Se o texto não for inteiramente placares, devolve None (o original fica em
     `details_raw`). Um "nome de juiz" com mais de MAX_JUDGE_WORDS palavras
@@ -326,7 +331,7 @@ def parse_judges(details: str | None) -> list[dict] | None:
         judge = m.group(1).strip(" .")
         if len(judge.split()) > MAX_JUDGE_WORDS:
             return None
-        out.append({"judge": judge, "score_a": int(m.group(2)), "score_b": int(m.group(3))})
+        out.append({"judge": judge, "score_1": int(m.group(2)), "score_2": int(m.group(3))})
         pos = m.end()
     return out or None
 

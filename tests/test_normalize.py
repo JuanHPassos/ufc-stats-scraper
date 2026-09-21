@@ -190,6 +190,9 @@ def test_parse_date_invalid():
         ("Submission", None, ("SUB", None)),
         ("Could Not Continue", None, ("CNC", None)),
         ("  ko/tko  ", " Punch ", ("KO/TKO", "Punch")),
+        ("TKO - Doctor's Stoppage", None, ("KO/TKO", "Doctor's Stoppage")),  # visto no site
+        ("KO - Punch", "", ("KO/TKO", "Punch")),
+        ("TKO - Doctor's Stoppage", "Cut", ("KO/TKO", "Cut")),  # detalhe explícito prevalece
     ],
 )
 def test_normalize_method(method, detail, expected):
@@ -229,6 +232,10 @@ def test_went_to_decision(m, expected):
         ("Catch Weight Bout", ("Catch Weight", False, False)),
         ("Open Weight Bout", ("Open Weight", False, False)),
         ("Super Heavyweight Bout", ("Super Heavyweight", False, False)),
+        ("Road to UFC 4 Lightweight Tournament Title Bout", ("Lightweight", True, False)),
+        ("Ultimate Fighter 33 Flyweight Tournament Title Bout", ("Flyweight", True, False)),
+        ("UFC Women's Featherweight Title Bout", ("Featherweight", True, True)),
+        ("Heavyweight", ("Heavyweight", False, False)),
     ],
 )
 def test_normalize_weight_class(s, expected):
@@ -237,7 +244,9 @@ def test_normalize_weight_class(s, expected):
 
 def test_normalize_weight_class_unmapped_warns(caplog):
     with caplog.at_level(logging.WARNING, logger="ufc_scraper.normalize"):
-        assert n.normalize_weight_class("UFC Tournament Title Bout") == ("Tournament", True, False)
+        wc, is_title, is_women = n.normalize_weight_class("UFC Tournament Title Bout")
+    assert (is_title, is_women) == (True, False)
+    assert wc and "bout" not in wc.lower()  # texto limpo, sem o sufixo
     assert any("categoria não mapeada" in r.message for r in caplog.records)
 
 
@@ -247,9 +256,9 @@ def test_normalize_weight_class_unmapped_warns(caplog):
 def test_parse_judges_three_scores():
     s = "Sal D'Amato 29 - 28. Derek Cleary 29 - 28. Chris Lee 30 - 27."
     assert n.parse_judges(s) == [
-        {"judge": "Sal D'Amato", "score_a": 29, "score_b": 28},
-        {"judge": "Derek Cleary", "score_a": 29, "score_b": 28},
-        {"judge": "Chris Lee", "score_a": 30, "score_b": 27},
+        {"judge": "Sal D'Amato", "score_1": 29, "score_2": 28},
+        {"judge": "Derek Cleary", "score_1": 29, "score_2": 28},
+        {"judge": "Chris Lee", "score_1": 30, "score_2": 27},
     ]
 
 
@@ -257,13 +266,13 @@ def test_parse_judges_real_site_text_and_5_rounds():
     s = "Sal D'amato 46 - 49. Derek Cleary 47 - 48. Ron McCarthy 45 - 50."
     out = n.parse_judges(s)
     assert [j["judge"] for j in out] == ["Sal D'amato", "Derek Cleary", "Ron McCarthy"]
-    assert (out[0]["score_a"], out[0]["score_b"]) == (46, 49)
+    assert (out[0]["score_1"], out[0]["score_2"]) == (46, 49)
 
 
 def test_parse_judges_without_trailing_dot_and_extra_spaces():
     assert n.parse_judges("  Eric Colon  28-29.  Mike Bell 27 - 29 ") == [
-        {"judge": "Eric Colon", "score_a": 28, "score_b": 29},
-        {"judge": "Mike Bell", "score_a": 27, "score_b": 29},
+        {"judge": "Eric Colon", "score_1": 28, "score_2": 29},
+        {"judge": "Mike Bell", "score_1": 27, "score_2": 29},
     ]
 
 

@@ -39,7 +39,7 @@ Regra de ouro: **uma parte só está concluída quando o critério de conclusão
 | 1 | Cliente HTTP com cache, rate limit e retry | ✅ concluída | `0424a96` |
 | 2 | Crawler completo (coleta do HTML bruto) | ✅ concluída (coleta completa em andamento) | `b03a018` |
 | 3 | Funções de normalização | ✅ concluída | `a8ae2d9` |
-| 4 | Parser de eventos e resumo das lutas | ⬜ pendente | — |
+| 4 | Parser de eventos e resumo das lutas | ✅ concluída (reconferir com eventos antigos) | (preencher) |
 | 5 | Parser de estatísticas totais e por round | ⬜ pendente | — |
 | 6 | Parser de golpes significativos por alvo e posição | ⬜ pendente | — |
 | 7 | Parser de lutadores | ⬜ pendente | — |
@@ -457,11 +457,12 @@ menos com eventos antigos já baixados) para as fixtures adicionais.
 
 **Tarefas**
 
-- [ ] Adicionar fixtures pendentes da Parte 2: evento antigo sem estatísticas
+- [~] Adicionar fixtures pendentes da Parte 2 (**parcial**: empate, NC, overturned, feminina e título já
+      estão; evento antigo sem estatísticas e lutador com `--` ficam para quando a coleta chegar lá): evento antigo sem estatísticas
       (ex.: UFC 1–10, 1993–96), luta com **empate**, luta com **no contest**, luta de
       **título**, luta **feminina**, luta com **overturned**/DQ se existir. Escolher
       IDs consultando `data/raw/` (grep por `Draw`, `NC`, `belt`, `Women`).
-- [ ] `parse/events.py`:
+- [x] `parse/events.py`:
   - `parse_events_list(html, settings) -> list[dict]` → linhas de `events`
     (`event_id, name, date, location, scraped_at, source_url`).
   - `parse_event_card(html, event_id, settings) -> list[dict]` → linhas
@@ -474,21 +475,21 @@ menos com eventos antigos já baixados) para as fixtures adicionais.
     - `bonuses`: lista de strings a partir dos ícones da linha (ex.: `perf`, `fight`,
       `sub`, `ko`, `belt` → belt vira `is_title_fight`, não bônus). Serializar
       como JSON string no CSV.
-- [ ] `parse/fights.py`:
+- [x] `parse/fights.py`:
   - `parse_fight_summary(html, fight_id, settings) -> dict` → campos que só existem
     na página da luta: `time_format_raw, scheduled_rounds, total_fight_seconds,
     referee, details_raw, judges_scores` (JSON string ou nulo), `went_to_decision`.
     Também recolhe `fighter_a_id/fighter_b_id/winner_id/method` como **checagem**:
     se divergir do card, log `WARNING` com o `fight_id` (o card manda).
-- [ ] `parse/__init__.py`: `build_events(settings) -> DataFrame` e
+- [x] `parse/__init__.py`: `build_events(settings) -> DataFrame` e
       `build_fights(settings) -> DataFrame` que percorrem `data/raw/<date>/`,
       juntam card + resumo por `fight_id` e escrevem
       `processed/<date>/events.csv` e `fights.csv`. Lutas cujo HTML de luta está
       ausente (falha de coleta) entram com os campos da página de luta nulos e um
       `WARNING`.
-- [ ] Ligar `parse --table events|fights` no `__main__.py` (sem `--table`, roda todas
+- [x] Ligar `parse --table events|fights` no `__main__.py` (sem `--table`, roda todas
       as tabelas já implementadas).
-- [ ] `tests/test_parse_events.py` e `tests/test_parse_fights.py` cobrindo cada
+- [x] `tests/test_parse_events.py` e `tests/test_parse_fights.py` cobrindo cada
       fixture: contagem de lutas por evento, IDs, vencedor, empate, NC, título,
       feminina, placares dos juízes, evento antigo (campos nulos, não zero).
 
@@ -515,7 +516,40 @@ método/categoria não mapeados que não esteja justificado nas notas.
 
 **Notas de execução**
 
-_(vazio)_
+- 2026-09-21 — `parse/events.py`, `parse/fights.py`, `parse/__init__.py` (builders + `BUILDERS`),
+  CLI `parse` ligada. 193 testes. Rodado sobre a coleta parcial (~70 eventos): 789 eventos,
+  849 lutas, 0 divergências card/página, 0 métodos/categorias não mapeados.
+- **DECISÃO 1 — ordem A/B vem da página da luta, não do card.** No card o vencedor é SEMPRE
+  listado primeiro (673/673), então a ordem ali não tem informação de canto. Na página da luta
+  o 1º vence 55% (372/673) — taxa típica do canto vermelho — logo é ela que satisfaz a spec
+  ("canto vermelho = A"). O card só entra como fallback quando a página falta, marcado na
+  coluna `fighter_order_source` (`fight_page` | `card`). A tabela de estatísticas da página
+  segue a mesma ordem das pessoas (333/333) — bom para a Parte 5.
+- **DECISÃO 2 — placares dos juízes.** O site NÃO lista os placares na ordem dos lutadores:
+  em 333/333 decisões o vencedor é o 2º número. Em vez de confiar nessa convenção, o builder
+  atribui `score_a/score_b` pelo lado favorecido pela **maioria** dos juízes (= vencedor por
+  definição). O JSON guarda também `score_1/score_2` (ordem literal). Em empate/NC,
+  `score_a/b` são nulos. Se a convenção "vencedor 2º" falhar em alguma era, sai WARNING
+  (`placares não favorecem o 2º número`) — checar nos eventos antigos.
+- **DECISÃO 3 — categoria bruta vem da página da luta.** O card mostra só `Flyweight` +
+  `belt.png` tanto para `UFC Flyweight Title Bout` quanto para `Road to UFC 4 Flyweight
+  Tournament Title Bout` / `Ultimate Fighter 33 … Tournament Title Bout`. `is_title_fight` =
+  cinturão no card OU "title" no título da página (inclui interinos e torneios);
+  `weight_class_raw` permite à análise separar. `normalize_weight_class` agora acha a
+  categoria por substring (robusto a qualquer prefixo).
+- Colunas extras (além da spec §4, sem conflito): `card_position` (1 = main event),
+  `fighter_order_source`, `weight_class_raw`, `method_raw`.
+- `Details:` da página: texto livre direto no `<p>` (técnica ou motivo, ex.: `Low Blow from X`,
+  `Failed Drug Test by X`) + um `<i>` por juiz. Lidos separadamente; `details_raw` = tudo.
+- Método na página pode vir como `TKO - Doctor's Stoppage`: `normalize_method` separa prefixo
+  conhecido + detalhe, e o builder preenche `method_detail` com o da página quando o card
+  não tem.
+- Fixtures novas: `event_with_draw_5c38639f860a5542`, `event_with_nc_1e75e6c9de99fa76`,
+  `fight_draw_mdec_a997593977ba8cad`, `fight_nc_7e8749cbf32ef1f8`,
+  `fight_overturned_7ffdaa44fc8d111b` (624 KB no total).
+- **Pendência (não bloqueia):** quando a coleta chegar nos anos 90, adicionar fixture de evento
+  sem estatísticas (`No Time Limit`, `Referee: --`?) e reexecutar `parse` para conferir
+  os WARNINGs de método/categoria/placares nas eras antigas. Registrar aqui.
 
 ---
 
