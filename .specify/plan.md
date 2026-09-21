@@ -36,7 +36,7 @@ Regra de ouro: **uma parte só está concluída quando o critério de conclusão
 | Parte | Título | Estado | Commit |
 | --- | --- | --- | --- |
 | 0 | Bootstrap do projeto | ✅ concluída | `ed91d72` |
-| 1 | Cliente HTTP com cache, rate limit e retry | ⬜ pendente | — |
+| 1 | Cliente HTTP com cache, rate limit e retry | 🟨 em andamento (código pronto; smoke test bloqueado por desafio anti-bot) | — |
 | 2 | Crawler completo (coleta do HTML bruto) | ⬜ pendente | — |
 | 3 | Funções de normalização | ⬜ pendente | — |
 | 4 | Parser de eventos e resumo das lutas | ⬜ pendente | — |
@@ -204,7 +204,7 @@ da spec §6) quando não existe. Todo o resto do crawler depende só dela.
 
 **Tarefas**
 
-- [ ] `http.py`:
+- [x] `http.py`:
   - `fetch(settings, kind, key, *, force=False) -> str`:
     1. calcula `path = cache_path(...)`; se existe e `not force`, lê e retorna
        (log `DEBUG cache hit`); **sem sleep em cache hit**;
@@ -218,7 +218,7 @@ da spec §6) quando não existe. Todo o resto do crawler depende só dela.
     7. log `INFO` com URL, status e tempo de resposta em ms para cada requisição real.
   - Classe única `Session` (ou estado de módulo) para reaproveitar
     `requests.Session` e guardar o timestamp do rate limit.
-- [ ] `tests/test_http.py` com `monkeypatch`/`unittest.mock` (sem rede):
+- [x] `tests/test_http.py` com `monkeypatch`/`unittest.mock` (sem rede):
   - cache hit não chama `requests` nem `sleep`;
   - cache miss chama uma vez, grava o arquivo, segunda chamada é hit;
   - `500, 500, 200` → 3 tentativas, sucesso, `sleep` chamado com 5 e 15;
@@ -246,7 +246,20 @@ ls data/raw/2026-09-21/events_list.html
 
 **Notas de execução**
 
-_(vazio)_
+- 2026-09-21 — `http.py` e `tests/test_http.py` prontos (40 testes no total). `Fetcher` recebe
+  `session`, `sleep`, `clock` e `rng` injetáveis; `fetch()` de módulo reaproveita um `Fetcher`
+  por `Settings`. Retry: 1 + `max_retries` tentativas, backoff `(5, 15, 45)`; rate limit só
+  antes da 1ª tentativa de cada `fetch` (entre retries o backoff já é maior). Arquivo gravado
+  como bytes crus; leitura em UTF-8. `NotFound` e `FetchError` são irmãs (não subclasses).
+- **BLOQUEIO no smoke test.** O site devolve HTTP 200 com uma interstitial
+  `<title>Loading…</title> / "Checking your browser…"` de ~3 KB contendo um desafio
+  proof-of-work em JavaScript: calcula `sha256(nonce + ':' + n)` incrementando `n` até o hash
+  começar com `00`, faz `POST /__c` com `nonce` e `n`, e recarrega a página (presumivelmente
+  o POST define um cookie de sessão). A premissa da spec §2 ("sem JavaScript necessário")
+  está desatualizada. Ação tomada: `is_challenge_page()` detecta a interstitial, o `Fetcher`
+  levanta `ChallengeRequired` e **nunca grava** essa página no cache. Decisão sobre como
+  prosseguir (resolver o desafio no cliente, com os mesmos limites de taxa, ou outra rota)
+  fica com o grupo — ver conversa/commit. Só 1 GET real foi feito ao site nesta parte.
 
 ---
 
