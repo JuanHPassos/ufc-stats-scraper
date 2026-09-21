@@ -40,7 +40,7 @@ Regra de ouro: **uma parte só está concluída quando o critério de conclusão
 | 2 | Crawler completo (coleta do HTML bruto) | ✅ concluída (coleta completa em andamento) | `b03a018` |
 | 3 | Funções de normalização | ✅ concluída | `a8ae2d9` |
 | 4 | Parser de eventos e resumo das lutas | ✅ concluída (reconferir com eventos antigos) | `af71019` |
-| 5 | Parser de estatísticas totais e por round | ✅ concluída | (preencher) |
+| 5 | Parser de estatísticas totais e por round | ✅ concluída | `d69ebcc` |
 | 6 | Parser de golpes significativos por alvo e posição | ⬜ pendente | — |
 | 7 | Parser de lutadores | ⬜ pendente | — |
 | 8 | Validação, relatório de cobertura e exportação | ⬜ pendente | — |
