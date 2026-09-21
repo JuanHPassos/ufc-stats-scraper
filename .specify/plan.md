@@ -43,7 +43,7 @@ Regra de ouro: **uma parte só está concluída quando o critério de conclusão
 | 5 | Parser de estatísticas totais e por round | ✅ concluída | `d69ebcc` |
 | 6 | Parser de golpes significativos por alvo e posição | ✅ concluída | `5d49055` |
 | 7 | Parser de lutadores | ✅ concluída (critério de cobertura fica para o fim da coleta) | `e69b72f` |
-| 8 | Validação, relatório de cobertura e exportação | ⬜ pendente | — |
+| 8 | Validação, relatório de cobertura e exportação | 🟨 código e testes prontos; rodar critério ao fim da coleta | (preencher) |
 | 9 | Modo incremental | ⬜ pendente | — |
 | 10 | Conferência manual e documentação final | ⬜ pendente | — |
 
@@ -753,7 +753,7 @@ comando `export` que gera CSV + Parquet (SQLite opcional).
 
 **Tarefas**
 
-- [ ] `validate.py` — cada checagem é uma função `check_<nome>(tables) -> list[str]`
+- [x] `validate.py` — cada checagem é uma função `check_<nome>(tables) -> list[str]`
       (lista de violações; vazia = passou). Implementar, na ordem da spec §7:
   - integridade: todo evento da lista tem HTML e linha; toda luta de todo evento
     está em `fights`; todo `fighter_id` de `fights` existe em `fighters`; PKs únicas
@@ -766,21 +766,21 @@ comando `export` que gera CSV + Parquet (SQLite opcional).
   - `run_validation(settings) -> bool`: roda tudo, imprime resumo, escreve
     `processed/<date>/validation_report.md`, retorna `False` (exit 1) se alguma
     checagem bloqueante falhou. Listar até 20 exemplos por violação.
-- [ ] Relatório de cobertura (não bloqueia) em `processed/<date>/coverage_report.md`:
+- [x] Relatório de cobertura (não bloqueia) em `processed/<date>/coverage_report.md`:
   - % de nulos por coluna **por ano** (ano vem de `events.date`) para `fights`,
     `fight_stats` e `round_stats`;
   - contagem de lutas por `method` × ano;
   - primeiro ano em que `ctrl_seconds` e `round_stats` têm < 5 % de nulos
     (responde à questão em aberto da spec §8).
-- [ ] `export.py`: `export(settings, fmt)`; CSV já existe (parse); `parquet` escreve
+- [x] `export.py`: `export(settings, fmt)`; CSV já existe (parse); `parquet` escreve
       as 5 tabelas com `pyarrow` e tipos explícitos (inteiros nullable `Int64`, datas
       como `date`, booleanos, `bonuses`/`judges_scores` como string JSON); `sqlite`
       grava `processed/<date>/ufc_stats.sqlite` com as 5 tabelas e PKs declaradas.
       Decisão Parquet × SQLite continua do grupo — implementar os dois é barato.
-- [ ] Ligar `validate` e `export` no `__main__.py`.
-- [ ] `tests/test_validate.py`: DataFrames pequenos construídos à mão, um caso
+- [x] Ligar `validate` e `export` no `__main__.py`.
+- [x] `tests/test_validate.py`: DataFrames pequenos construídos à mão, um caso
       passando e um falhando por checagem.
-- [ ] Corrigir no parser qualquer violação real encontrada (voltar à parte
+- [ ] (ao fim da coleta) Corrigir no parser qualquer violação real encontrada (voltar à parte
       correspondente, registrar nas notas dela).
 
 **Entregáveis:** `src/ufc_scraper/{validate,export}.py`, testes, `validation_report.md`,
@@ -797,8 +797,34 @@ ls data/processed/2026-09-21/*.parquet | wc -l                             # 5
 
 **Notas de execução**
 
-_(vazio — colar aqui o resumo do validation_report e a resposta "a partir de que
-ano ctrl/rounds são confiáveis")_
+- 2026-09-21 — `validate.py` (13 checagens: 4 de integridade + 9 de consistência, cada uma
+  `check_<nome>(Tables) -> list[str]`; `run_checks`, `write_validation_report`,
+  `coverage_by_year` + `reliable_from`, `write_coverage_report`, `run_validation`) e
+  `export.py` (`SCHEMA` explícito por tabela; `load_typed`; Parquet via pyarrow; SQLite com
+  PKs declaradas; reexportar sobrescreve). CLI `validate` (exit 0/1) e `export` ligadas.
+  Dependência nova: `tabulate` (para `to_markdown`). 258 testes.
+- Checagens extras além da spec §7: `result_type` coerente com `winner_id`; `fighter_a ≠
+  fighter_b`; `round ≤ end_round`; `fighter_id` das tabelas de stats pertence à luta;
+  `round_stats` sem linha em `fight_stats`.
+- Cobertura: além de % de nulos por coluna/ano, o relatório mede **% de lutas por ano com**
+  `fight_stats`, `round_stats`, `ctrl`, alvo/posição, placares (em decisões) e árbitro, e
+  responde "confiável desde" = primeiro ano a partir do qual todos os seguintes têm ≥ 95 %.
+- **Rodado sobre a coleta parcial (~160 eventos, 2022–2026):** consistência 100 % limpa
+  (9/9 ✅). Integridade falha só por causa da coleta incompleta (eventos sem HTML, perfis
+  ainda não baixados) e da corrida com o crawler (páginas surgindo entre o `parse` de uma
+  tabela e o da outra). Nenhuma violação real de parser encontrada até aqui.
+- Export testado: 5 Parquet (`Int64`/`boolean`/`date`/`string`), `ufc_stats.sqlite` com 5
+  tabelas e PKs.
+- **O QUE FALTA (quando a coleta terminar — `grep 'coleta encerrada' data/crawl_full.out`):**
+  ```bash
+  uv run python -m ufc_scraper parse    --date 2026-09-21          # snapshot estático das 5 tabelas
+  uv run python -m ufc_scraper validate --date 2026-09-21; echo exit=$?   # esperado: 0
+  uv run python -m ufc_scraper export   --date 2026-09-21 --format parquet
+  uv run python -m ufc_scraper export   --date 2026-09-21 --format sqlite
+  ```
+  Depois: colar aqui o resumo de `validation_report.md` e os anos de `coverage_report.md`;
+  conferir os WARNINGs do `parse` nas eras antigas (pendências das Partes 4–7); atualizar
+  as notas da Parte 2 com as contagens finais da coleta; marcar esta parte ✅.
 
 ---
 

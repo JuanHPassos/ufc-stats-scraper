@@ -85,13 +85,24 @@ def cmd_parse(args: argparse.Namespace, settings: Settings) -> int:
     return 0
 
 
+def cmd_validate(args: argparse.Namespace, settings: Settings) -> int:
+    from .validate import run_validation
+
+    return 0 if run_validation(settings) else 1
+
+
+def cmd_export(args: argparse.Namespace, settings: Settings) -> int:
+    from .export import export
+
+    for path in export(settings, args.format):
+        log.info("exportado: %s", path)
+    return 0
+
+
 def run(args: argparse.Namespace, settings: Settings) -> int:
-    """Despacha o subcomando. Cada parte do plano substitui o stub correspondente."""
-    if args.command == "crawl":
-        return cmd_crawl(args, settings)
-    if args.command == "parse":
-        return cmd_parse(args, settings)
-    return _not_implemented(args.command)
+    """Despacha o subcomando."""
+    handlers = {"crawl": cmd_crawl, "parse": cmd_parse, "validate": cmd_validate, "export": cmd_export}
+    return handlers[args.command](args, settings)
 
 
 def main(argv: list[str] | None = None) -> int:
