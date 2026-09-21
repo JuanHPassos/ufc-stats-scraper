@@ -342,12 +342,17 @@ _RECORD_RE = re.compile(r"(?:Record:\s*)?(\d+)-(\d+)-(\d+)(?:\s*\((\d+)\s*NC\))?
 
 
 def parse_record(s: str | None) -> tuple[int | None, int | None, int | None, int | None]:
-    """"Record: 9-4-0 (1 NC)" -> (9, 4, 0, 1); "12-3-0" -> (12, 3, 0, None)."""
+    """"Record: 9-4-0 (1 NC)" -> (9, 4, 0, 1); "12-3-0" -> (12, 3, 0, 0).
+
+    O site só mostra o sufixo "(N NC)" quando N > 0; um cartel sem sufixo é
+    completo e significa NC = 0 (campo presente, não ausente). Só um cartel
+    inexistente devolve tudo None.
+    """
     t = clean_text(s)
     if t is None:
         return (None, None, None, None)
     m = _RECORD_RE.fullmatch(t)
     if not m:
         raise ValueError(f"cartel inválido: {s!r}")
-    nc = int(m.group(4)) if m.group(4) is not None else None
+    nc = int(m.group(4)) if m.group(4) is not None else 0
     return (int(m.group(1)), int(m.group(2)), int(m.group(3)), nc)

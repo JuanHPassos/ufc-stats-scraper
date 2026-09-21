@@ -26,7 +26,7 @@ def test_full_profile(fixture):
     assert r == {
         "fighter_id": VAN, "name": "Joshua Van", "nickname": "The Fearless",
         "height_cm": 165.1, "weight_kg": 56.7, "reach_cm": 165.1, "stance": "Orthodox", "dob": "2001-10-10",
-        "wins": 18, "losses": 2, "draws": 0, "nc": None,
+        "wins": 18, "losses": 2, "draws": 0, "nc": 0,
         "slpm": 8.26, "str_acc": 0.57, "sapm": 5.83, "str_def": 0.57,
         "td_avg": 0.7, "td_acc": 0.61, "td_def": 0.75, "sub_avg": 0.3,
         "scraped_at": "2026-09-21", "source_url": f"http://ufcstats.com/fighter-details/{VAN}",
@@ -36,7 +36,7 @@ def test_full_profile(fixture):
 def test_second_profile(fixture):
     r = parse_fighter(fixture(f"fighter_{PANTOJA}.html"), PANTOJA, S)
     assert (r["name"], r["nickname"], r["dob"]) == ("Alexandre Pantoja", "The Cannibal", "1990-04-16")
-    assert (r["wins"], r["losses"], r["draws"], r["nc"]) == (30, 7, 0, None)
+    assert (r["wins"], r["losses"], r["draws"], r["nc"]) == (30, 7, 0, 0)
     assert r["reach_cm"] == 170.2
 
 
@@ -135,7 +135,7 @@ def test_build_fighters_and_coverage_warning(raw_tree, caplog):
         df = build_fighters(raw_tree)
     assert list(df.columns) == FIGHTERS_COLUMNS
     assert len(df) == 2 and df.fighter_id.is_unique
-    assert str(df.wins.dtype) == "Int64" and df.nc.isna().all()
+    assert str(df.wins.dtype) == "Int64" and (df.nc == 0).all()
     # os 4 da letra x não têm perfil salvo -> 4 WARNINGs de cobertura
     missing = [m for m in caplog.records if "não tem perfil salvo" in m.message]
     assert len(missing) == 4 and any("Rubens Xavier" in m.message for m in missing)

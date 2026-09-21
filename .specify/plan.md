@@ -733,8 +733,13 @@ tratar na Parte 8 ou recoletar).
   baixa os perfis por último (lista → eventos → lutas → A–Z → lutadores). Agora: 78 perfis
   (da amostra `--limit 3`), 673 IDs de `fights` sem perfil e 4 da letra `x` sem perfil —
   tudo esperado. Reexecutar o critério na Parte 8, quando a coleta tiver terminado.
-- Nulos na amostra: `nickname` 29 %, `stance` 1 %, `nc` 92 % (só quem tem NC no cartel).
-  Nenhum `--` em altura/reach/dob nos 78 recentes; lutadores antigos devem trazer.
+- **Correção pós-revisão:** `nc` = 0 quando o cartel não tem sufixo `(N NC)` — o site só mostra
+  o sufixo quando N > 0, então o campo está presente, não ausente (`parse_record` ajustado).
+  Nulos na amostra agora: `nickname` 29 %, `stance` 1 %. Nenhum `--` em altura/reach/dob nos
+  78 recentes; lutadores antigos devem trazer.
+- **Melhorias possíveis (decisão do grupo, não feitas):** (a) linha de fallback a partir da
+  lista A–Z quando um perfil falhar (404) — só se a coleta completa tiver falhas; a Parte 8
+  vai mostrar; (b) coluna `Belt` (campeão atual) da lista A–Z — fora da spec, retrato da data.
 
 ---
 

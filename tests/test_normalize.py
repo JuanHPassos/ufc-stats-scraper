@@ -287,9 +287,9 @@ def test_parse_judges_non_scores_return_none(s):
 @pytest.mark.parametrize(
     "s, expected",
     [
-        ("Record: 12-3-0", (12, 3, 0, None)),
+        ("Record: 12-3-0", (12, 3, 0, 0)),  # sem sufixo = 0 NC, não nulo
         ("Record: 9-4-0 (1 NC)", (9, 4, 0, 1)),
-        ("21-0-0", (21, 0, 0, None)),
+        ("21-0-0", (21, 0, 0, 0)),
         ("  Record:  30-5-1  (2 NC) ", (30, 5, 1, 2)),
     ],
 )
