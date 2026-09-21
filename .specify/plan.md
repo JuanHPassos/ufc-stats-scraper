@@ -45,7 +45,7 @@ Regra de ouro: **uma parte só está concluída quando o critério de conclusão
 | 7 | Parser de lutadores | ✅ concluída (critério de cobertura fica para o fim da coleta) | `e69b72f` |
 | 8 | Validação, relatório de cobertura e exportação | 🟨 código e testes prontos; rodar critério ao fim da coleta | `2f46ca0` |
 | 9 | Modo incremental | 🟨 código, testes e README prontos; rodar critério ao fim da coleta | `d0bba24` |
-| 10 | Conferência manual e documentação final | 🟨 script e README prontos; conferência manual e spec ao fim da coleta | (preencher) |
+| 10 | Conferência manual e documentação final | 🟨 script e README prontos; conferência manual e spec ao fim da coleta | `5ffda1c` |
 
 Estados: `⬜ pendente` · `🟨 em andamento` · `✅ concluída`
 
