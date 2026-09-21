@@ -33,7 +33,7 @@ Regra de ouro: **uma parte só está concluída quando o critério de conclusão
 
 | Parte | Título | Estado | Commit |
 | --- | --- | --- | --- |
-| 0 | Bootstrap do projeto | ⬜ pendente | — |
+| 0 | Bootstrap do projeto | ✅ concluída | (preencher) |
 | 1 | Cliente HTTP com cache, rate limit e retry | ⬜ pendente | — |
 | 2 | Crawler completo (coleta do HTML bruto) | ⬜ pendente | — |
 | 3 | Funções de normalização | ⬜ pendente | — |
@@ -145,31 +145,31 @@ testes rodando. Nenhuma lógica de scraping ainda.
 
 **Tarefas**
 
-- [ ] Criar `pyproject.toml` com `uv` (nome `ufc-scraper`, `requires-python >= 3.12`,
+- [x] Criar `pyproject.toml` com `uv` (nome `ufc-scraper`, `requires-python >= 3.12`,
       deps e dev-deps listadas em Convenções; `[tool.pytest.ini_options] testpaths = ["tests"]`;
       configurar `src` layout).
-- [ ] Criar `.gitignore` (`data/`, `.venv/`, `__pycache__/`, `*.pyc`, `*.log`, `.pytest_cache/`).
-- [ ] Criar a árvore `src/ufc_scraper/` e `tests/` com `__init__.py` onde couber.
-- [ ] `config.py`: `@dataclass Settings` com `base_url` (`http://ufcstats.com`),
+- [x] Criar `.gitignore` (`data/`, `.venv/`, `__pycache__/`, `*.pyc`, `*.log`, `.pytest_cache/`).
+- [x] Criar a árvore `src/ufc_scraper/` e `tests/` com `__init__.py` onde couber.
+- [x] `config.py`: `@dataclass Settings` com `base_url` (`http://ufcstats.com`),
       `data_dir` (`data`), `date` (str `YYYY-MM-DD`, padrão hoje), `delay_min=1.0`,
       `delay_max=2.0`, `timeout=30`, `max_retries=3`, `backoff=(5, 15, 45)`,
       `user_agent` (com e-mail de contato do grupo), `mode` (`full|incremental`).
       Função `settings_from_args(argparse.Namespace) -> Settings`.
-- [ ] `paths.py`: funções puras `raw_dir(settings)`, `processed_dir(settings)`,
+- [x] `paths.py`: funções puras `raw_dir(settings)`, `processed_dir(settings)`,
       `cache_path(settings, kind, key)` implementando o layout da spec §3
       (`events_list.html`, `events/<id>.html`, `fights/<id>.html`,
       `fighters/<id>.html`, `fighters_list/<letra>.html`) e
       `url_for(kind, key)` (ex.: `("event", id) -> /event-details/<id>`;
       `("events_list", None)`; `("fighters_list", "a")`).
-- [ ] `logging_setup.py`: `setup_logging(settings)` — console + arquivo em
+- [x] `logging_setup.py`: `setup_logging(settings)` — console + arquivo em
       `processed_dir/scraper.log`, formato com timestamp.
-- [ ] `__main__.py`: `argparse` com subcomandos `crawl`, `parse`, `validate`,
+- [x] `__main__.py`: `argparse` com subcomandos `crawl`, `parse`, `validate`,
       `export`, cada um ainda apenas imprimindo "não implementado" e saindo com
       código 2. Flags globais: `--date`, `--data-dir`. Flags de `crawl`:
       `--limit`, `--mode`, `--delay-min`, `--delay-max`. Flags de `parse`: `--table`.
       Flags de `export`: `--format {csv,parquet,sqlite}`.
-- [ ] `tests/test_paths.py`: testa `cache_path` e `url_for` para cada tipo.
-- [ ] Atualizar `README.md` com: objetivo em 3 linhas, como instalar (`uv sync`),
+- [x] `tests/test_paths.py`: testa `cache_path` e `url_for` para cada tipo.
+- [x] Atualizar `README.md` com: objetivo em 3 linhas, como instalar (`uv sync`),
       comandos de referência e link para `.specify/spec.md` e `.specify/plan.md`.
 
 **Entregáveis:** `pyproject.toml`, `.gitignore`, `uv.lock`, `src/ufc_scraper/{__init__,__main__,config,paths,logging_setup}.py`, `tests/test_paths.py`, `README.md`.
@@ -184,7 +184,11 @@ uv run python -m ufc_scraper crawl --date 2026-09-21; echo "exit=$?"   # exit=2
 
 **Notas de execução**
 
-_(vazio)_
+- Concluída em 2026-09-21. `uv sync` + 24 testes passando (`tests/test_paths.py`, `tests/test_config.py`).
+- Build backend: `hatchling` com `packages = ["src/ufc_scraper"]`; dev-deps em `[dependency-groups]` (formato do uv).
+- `Settings.__post_init__` valida `date` (ISO), `mode` e `delay_min <= delay_max`; a CLI sai com exit 1 em erro de configuração e exit 2 em comando não implementado.
+- `setup_logging` é idempotente (não duplica handlers) e abre o log em append para retomadas.
+- `__main__.run()` é o ponto de despacho: cada parte seguinte substitui o stub do seu subcomando lá.
 
 ---
 

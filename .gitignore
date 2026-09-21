@@ -1,0 +1,12 @@
+# dados coletados e processados (nunca versionar)
+data/
+
+# python
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+
+# logs
+*.log
