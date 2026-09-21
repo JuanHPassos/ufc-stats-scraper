@@ -42,7 +42,7 @@ Regra de ouro: **uma parte só está concluída quando o critério de conclusão
 | 4 | Parser de eventos e resumo das lutas | ✅ concluída (reconferir com eventos antigos) | `af71019` |
 | 5 | Parser de estatísticas totais e por round | ✅ concluída | `d69ebcc` |
 | 6 | Parser de golpes significativos por alvo e posição | ✅ concluída | `5d49055` |
-| 7 | Parser de lutadores | ✅ concluída (critério de cobertura fica para o fim da coleta) | (preencher) |
+| 7 | Parser de lutadores | ✅ concluída (critério de cobertura fica para o fim da coleta) | `e69b72f` |
 | 8 | Validação, relatório de cobertura e exportação | ⬜ pendente | — |
 | 9 | Modo incremental | ⬜ pendente | — |
 | 10 | Conferência manual e documentação final | ⬜ pendente | — |
