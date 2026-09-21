@@ -9,7 +9,14 @@ import pytest
 
 from ufc_scraper.config import Settings
 from ufc_scraper.parse import FIGHT_STATS_COLUMNS, ROUND_STATS_COLUMNS, build_fight_stats, build_round_stats
-from ufc_scraper.parse.fight_stats import TOTALS_COLUMNS, parse_round_totals, parse_totals
+from ufc_scraper.parse.fight_stats import (
+    SIG_COLUMNS,
+    TOTALS_COLUMNS,
+    parse_round_sig_strikes,
+    parse_round_totals,
+    parse_sig_strikes,
+    parse_totals,
+)
 from ufc_scraper.paths import cache_path
 
 S = Settings(date="2026-09-21")
@@ -166,6 +173,8 @@ def test_build_fight_stats_and_round_stats(raw_tree):
     out = raw_tree.data_dir / "processed" / "2026-09-21"
     csv = pd.read_csv(out / "fight_stats.csv")
     assert len(csv) == 6 and csv.ctrl_seconds.notna().all()
+    assert csv.head_landed.notna().all() and csv.ground_attempted.notna().all()
+    assert ((csv.head_landed + csv.body_landed + csv.leg_landed) == csv.sig_str_landed).all()
     assert (out / "round_stats.csv").exists()
 
 
@@ -175,3 +184,107 @@ def test_cli_parse_stats_tables(raw_tree):
     argv = ["parse", "--date", "2026-09-21", "--data-dir", str(raw_tree.data_dir)]
     assert cli.main(argv + ["--table", "fight_stats"]) == 0
     assert cli.main(argv + ["--table", "round_stats"]) == 0
+
+
+# -- golpes significativos por alvo e posição (Parte 6) -----------------------
+
+
+def test_sig_strikes_5_round_title_fight(fixture):
+    rows = parse_sig_strikes(fixture(f"fight_udec_title_5r_{TITLE}.html"), TITLE, S)
+    assert [r["fighter_id"] for r in rows] == [VAN, PANTOJA]
+    van = rows[0]
+    # da fixture: Head 158 of 278, Body 17 of 20, Leg 6 of 7 (278+20+7 = 305 = sig_str_attempted)
+    assert (van["head_landed"], van["head_attempted"]) == (158, 278)
+    assert (van["body_landed"], van["leg_landed"]) == (17, 6)
+    assert (van["distance_landed"], van["clinch_landed"], van["ground_landed"]) == (160, 17, 4)
+    assert (van["_sig_check_landed"], van["_sig_check_attempted"]) == (181, 305)  # = sig_str dos totais
+    assert van["head_landed"] + van["body_landed"] + van["leg_landed"] == 181
+    assert van["head_attempted"] + van["body_attempted"] + van["leg_attempted"] == 305
+    assert van["distance_landed"] + van["clinch_landed"] + van["ground_landed"] == 181
+    assert set(rows[0]) >= set(SIG_COLUMNS)
+
+
+def test_round_sig_strikes_sum_to_totals(fixture):
+    html = fixture(f"fight_udec_title_5r_{TITLE}.html")
+    rounds = parse_round_sig_strikes(html, TITLE, S)
+    totals = parse_sig_strikes(html, TITLE, S)
+    assert len(rounds) == 10 and sorted({r["round"] for r in rounds}) == [1, 2, 3, 4, 5]
+    for t in totals:
+        mine = [r for r in rounds if r["fighter_id"] == t["fighter_id"]]
+        for col in SIG_COLUMNS:
+            assert sum(r[col] for r in mine) == t[col], col
+
+
+def test_sig_strikes_absent_returns_empty():
+    assert parse_sig_strikes("<html></html>", "x" * 16, S) == []
+    assert parse_round_sig_strikes("<html></html>", "x" * 16, S) == []
+
+
+def test_sig_and_totals_tables_are_distinguished(fixture):
+    html = fixture("fight_ko_bonus_fe612d20eec7ef35.html")
+    tot = parse_totals(html, "fe612d20eec7ef35", S)
+    sig = parse_sig_strikes(html, "fe612d20eec7ef35", S)
+    assert "kd" in tot[0] and "kd" not in sig[0]
+    assert "head_landed" in sig[0] and "head_landed" not in tot[0]
+
+
+def test_build_merges_sig_columns_and_nulls_when_section_missing(tmp_path, caplog):
+    """Página com totais mas sem seção de significativos -> colunas de alvo/posição nulas."""
+    s = Settings(data_dir=tmp_path, date="2026-09-21")
+    p = cache_path(s, "fight", TITLE)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy(FIXTURES / f"fight_udec_title_5r_{TITLE}.html", p)
+    only_totals = TOTALS_HTML.format(ths="".join(f"<th>{h}</th>" for h in HEADS))
+    cache_path(s, "fight", "1" * 16).write_text(f"<html><body>{only_totals}</body></html>", encoding="utf-8")
+
+    with caplog.at_level(logging.WARNING):
+        df = build_fight_stats(s)
+    assert len(df) == 4
+    full = df[df.fight_id == TITLE]
+    assert full.head_landed.notna().all() and int(full.head_landed.iloc[0]) == 158
+    partial = df[df.fight_id == "1" * 16]
+    assert partial[SIG_COLUMNS].isna().all().all()
+    assert partial.kd.iloc[0] == 1
+    assert "_sig_check_landed" not in df.columns
+    assert not [r for r in caplog.records if "≠" in r.message]
+
+
+SIG_HTML = """
+<table><thead><tr>{ths}</tr></thead><tbody><tr>
+<td><p><a href="http://ufcstats.com/fighter-details/aaaaaaaaaaaaaaaa">A</a></p><p><a href="http://ufcstats.com/fighter-details/bbbbbbbbbbbbbbbb">B</a></p></td>
+<td><p>10 of 20</p><p>--</p></td>
+<td><p>50%</p><p>---</p></td>
+<td><p>{head}</p><p>--</p></td>
+<td><p>2 of 3</p><p>--</p></td>
+<td><p>1 of 2</p><p>--</p></td>
+<td><p>10 of 20</p><p>--</p></td>
+<td><p>0 of 0</p><p>--</p></td>
+<td><p>0 of 0</p><p>--</p></td>
+</tr></tbody></table>
+"""
+SIG_HEADS = ["Fighter", "Sig. str", "Sig. str. %", "Head", "Body", "Leg", "Distance", "Clinch", "Ground"]
+
+
+def _page(head: str) -> str:
+    return "<html><body>" + TOTALS_HTML.format(ths="".join(f"<th>{h}</th>" for h in HEADS)) + SIG_HTML.format(
+        ths="".join(f"<th>{h}</th>" for h in SIG_HEADS), head=head
+    ) + "</body></html>"
+
+
+def test_build_warns_on_inconsistent_sums_but_keeps_row(tmp_path, caplog):
+    s = Settings(data_dir=tmp_path, date="2026-09-21")
+    p = cache_path(s, "fight", "2" * 16)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(_page("7 of 15"), encoding="utf-8")  # 7+2+1 = 10 OK
+    with caplog.at_level(logging.WARNING):
+        df = build_fight_stats(s)
+    assert not [r for r in caplog.records if "≠" in r.message]
+    assert int(df.head_landed.iloc[0]) == 7
+
+    caplog.clear()
+    p.write_text(_page("9 of 15"), encoding="utf-8")  # 9+2+1 = 12 ≠ 10
+    with caplog.at_level(logging.WARNING):
+        df = build_fight_stats(s)
+    msgs = [r.message for r in caplog.records if "≠" in r.message]
+    assert len(msgs) == 1 and "head+body+leg_landed = 12 ≠ sig_str_landed = 10" in msgs[0]
+    assert int(df.head_landed.iloc[0]) == 9  # não bloqueia nem descarta

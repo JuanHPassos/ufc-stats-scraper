@@ -48,6 +48,26 @@ TOTALS_COLUMNS = [
     "td_landed", "td_attempted", "sub_att", "rev", "ctrl_seconds",
 ]
 
+# Seção "Significant Strikes": alvo (head/body/leg) e posição (distance/clinch/ground).
+# `sig_str` aqui repete a coluna dos totais; sai como `_sig_check` só para conferência.
+SIG_HEADER = ["Fighter", "Sig. str", "Sig. str. %", "Head", "Body", "Leg", "Distance", "Clinch", "Ground"]
+SIG_SPEC: list[tuple[str | None, str]] = [
+    (None, "id"),
+    ("_sig_check", "of"),
+    (None, "skip"),
+    ("head", "of"),
+    ("body", "of"),
+    ("leg", "of"),
+    ("distance", "of"),
+    ("clinch", "of"),
+    ("ground", "of"),
+]
+SIG_COLUMNS = [
+    "head_landed", "head_attempted", "body_landed", "body_attempted", "leg_landed", "leg_attempted",
+    "distance_landed", "distance_attempted", "clinch_landed", "clinch_attempted", "ground_landed", "ground_attempted",
+]
+SIG_CHECK_COLUMNS = ["_sig_check_landed", "_sig_check_attempted"]
+
 _ROUND_RE = re.compile(r"^Round\s+(\d+)$", re.I)
 
 
@@ -165,3 +185,13 @@ def parse_totals(html: str, fight_id: str, settings: Settings) -> list[dict]:
 def parse_round_totals(html: str, fight_id: str, settings: Settings) -> list[dict]:
     """Seção Totals per round: 2 × N linhas com coluna `round`."""
     return _parse_table(html, fight_id, settings, TOTALS_HEADER, TOTALS_SPEC, per_round=True, where="totals/round")
+
+
+def parse_sig_strikes(html: str, fight_id: str, settings: Settings) -> list[dict]:
+    """Seção Significant Strikes (alvo e posição): 2 linhas, ou [] se não existe."""
+    return _parse_table(html, fight_id, settings, SIG_HEADER, SIG_SPEC, per_round=False, where="sig")
+
+
+def parse_round_sig_strikes(html: str, fight_id: str, settings: Settings) -> list[dict]:
+    """Seção Significant Strikes per round: 2 × N linhas com coluna `round`."""
+    return _parse_table(html, fight_id, settings, SIG_HEADER, SIG_SPEC, per_round=True, where="sig/round")

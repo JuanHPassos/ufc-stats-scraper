@@ -17,7 +17,15 @@ import pandas as pd
 from ..config import Settings
 from ..paths import cache_path, processed_dir, raw_dir
 from .events import EVENTS_COLUMNS, parse_event_card, parse_events_list
-from .fight_stats import TOTALS_COLUMNS, parse_round_totals, parse_totals
+from .fight_stats import (
+    SIG_CHECK_COLUMNS,
+    SIG_COLUMNS,
+    TOTALS_COLUMNS,
+    parse_round_sig_strikes,
+    parse_round_totals,
+    parse_sig_strikes,
+    parse_totals,
+)
 from .fights import parse_fight_summary
 
 log = logging.getLogger(__name__)
@@ -32,8 +40,8 @@ FIGHTS_COLUMNS = [
     "scraped_at", "source_url",
 ]
 
-FIGHT_STATS_COLUMNS = ["fight_id", "fighter_id", *TOTALS_COLUMNS, "scraped_at", "source_url"]
-ROUND_STATS_COLUMNS = ["fight_id", "fighter_id", "round", *TOTALS_COLUMNS, "scraped_at", "source_url"]
+FIGHT_STATS_COLUMNS = ["fight_id", "fighter_id", *TOTALS_COLUMNS, *SIG_COLUMNS, "scraped_at", "source_url"]
+ROUND_STATS_COLUMNS = ["fight_id", "fighter_id", "round", *TOTALS_COLUMNS, *SIG_COLUMNS, "scraped_at", "source_url"]
 
 # Campos do card que a página da luta também informa; divergência vira WARNING (card prevalece).
 _CHECK_FIELDS = ("winner_id", "result_type", "method", "end_round", "end_time_seconds")
@@ -197,35 +205,76 @@ def build_fights(settings: Settings) -> pd.DataFrame:
 # -- fight_stats / round_stats ------------------------------------------------
 
 
-def _build_stats(settings: Settings, parser, columns: list[str], name: str, keys: list[str]) -> pd.DataFrame:
-    """Percorre todas as páginas de luta salvas e aplica `parser`. Páginas sem tabela
-    (lutas antigas) não geram linha nenhuma — nulo, não zero."""
+_SUM_CHECKS = (("head", "body", "leg"), ("distance", "clinch", "ground"))
+
+
+def _check_sig(row: dict, name: str) -> int:
+    """Consistência da seção de significativos (WARNING, não bloqueia). Devolve nº de problemas."""
+    problems = 0
+    key = f"{row['fight_id']}/{row['fighter_id']}" + (f"/r{row['round']}" if "round" in row else "")
+    for suffix in ("landed", "attempted"):
+        sig = row.get(f"sig_str_{suffix}")
+        chk = row.get(f"_sig_check_{suffix}")
+        if sig is not None and chk is not None and sig != chk:
+            problems += 1
+            log.warning("%s %s: sig_str_%s totais=%s ≠ significativos=%s", name, key, suffix, sig, chk)
+        for parts in _SUM_CHECKS:
+            vals = [row.get(f"{p}_{suffix}") for p in parts]
+            if sig is not None and None not in vals and sum(vals) != sig:
+                problems += 1
+                log.warning("%s %s: %s_%s = %s ≠ sig_str_%s = %s", name, key, "+".join(parts), suffix, sum(vals), suffix, sig)
+    return problems
+
+
+def _build_stats(settings: Settings, totals_parser, sig_parser, columns: list[str], name: str, keys: list[str]) -> pd.DataFrame:
+    """Percorre todas as páginas de luta salvas: totais + significativos, unidos por `keys`.
+    Páginas sem tabela (lutas antigas) não geram linha nenhuma — nulo, não zero. Se só a
+    seção de significativos faltar, as colunas por alvo/posição ficam nulas."""
     rows: list[dict] = []
-    without = 0
+    without = without_sig = problems = 0
     fight_ids = raw_ids(settings, "fights")
     for fight_id in fight_ids:
-        recs = parser(read_raw(settings, "fight", fight_id), fight_id, settings)
-        if not recs:
+        html = read_raw(settings, "fight", fight_id)
+        totals = totals_parser(html, fight_id, settings)
+        if not totals:
             without += 1
-        rows.extend(recs)
+            continue
+        sig = {tuple(r[k] for k in keys): r for r in sig_parser(html, fight_id, settings)}
+        if not sig:
+            without_sig += 1
+        for row in totals:
+            extra = sig.pop(tuple(row[k] for k in keys), None)
+            if extra is not None:
+                row.update({k: v for k, v in extra.items() if k in SIG_COLUMNS or k in SIG_CHECK_COLUMNS})
+                problems += _check_sig(row, name)
+            for col in SIG_CHECK_COLUMNS:
+                row.pop(col, None)
+            rows.append(row)
+        for leftover in sig:
+            log.warning("%s: linha de significativos sem totais correspondentes: %s", name, leftover)
     df = pd.DataFrame(rows, columns=columns)
     for col in columns:
-        if col in TOTALS_COLUMNS or col == "round":
+        if col in TOTALS_COLUMNS or col in SIG_COLUMNS or col == "round":
             df[col] = df[col].astype("Int64")
     dups = df.duplicated(keys).sum()
     if dups:
         log.error("%s: %d chaves duplicadas %s", name, dups, keys)
-    log.info("%s: %d linhas de %d lutas (%d sem tabela)", name, len(df), len(fight_ids), without)
+    log.info(
+        "%s: %d linhas de %d lutas (%d sem tabela, %d sem significativos, %d inconsistências)",
+        name, len(df), len(fight_ids), without, without_sig, problems,
+    )
     write_csv(df, settings, name)
     return df
 
 
 def build_fight_stats(settings: Settings) -> pd.DataFrame:
-    return _build_stats(settings, parse_totals, FIGHT_STATS_COLUMNS, "fight_stats", ["fight_id", "fighter_id"])
+    return _build_stats(settings, parse_totals, parse_sig_strikes, FIGHT_STATS_COLUMNS, "fight_stats", ["fight_id", "fighter_id"])
 
 
 def build_round_stats(settings: Settings) -> pd.DataFrame:
-    return _build_stats(settings, parse_round_totals, ROUND_STATS_COLUMNS, "round_stats", ["fight_id", "fighter_id", "round"])
+    return _build_stats(
+        settings, parse_round_totals, parse_round_sig_strikes, ROUND_STATS_COLUMNS, "round_stats", ["fight_id", "fighter_id", "round"]
+    )
 
 
 BUILDERS: dict[str, Callable[[Settings], pd.DataFrame]] = {

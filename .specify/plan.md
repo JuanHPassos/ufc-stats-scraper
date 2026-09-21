@@ -41,7 +41,7 @@ Regra de ouro: **uma parte só está concluída quando o critério de conclusão
 | 3 | Funções de normalização | ✅ concluída | `a8ae2d9` |
 | 4 | Parser de eventos e resumo das lutas | ✅ concluída (reconferir com eventos antigos) | `af71019` |
 | 5 | Parser de estatísticas totais e por round | ✅ concluída | `d69ebcc` |
-| 6 | Parser de golpes significativos por alvo e posição | ⬜ pendente | — |
+| 6 | Parser de golpes significativos por alvo e posição | ✅ concluída | (preencher) |
 | 7 | Parser de lutadores | ⬜ pendente | — |
 | 8 | Validação, relatório de cobertura e exportação | ⬜ pendente | — |
 | 9 | Modo incremental | ⬜ pendente | — |
@@ -632,15 +632,15 @@ a partir da seção "Significant Strikes" (totais e por round).
 
 **Tarefas**
 
-- [ ] Em `parse/fight_stats.py`: `parse_sig_strikes(html, fight_id, settings)` e
+- [x] Em `parse/fight_stats.py`: `parse_sig_strikes(html, fight_id, settings)` e
       `parse_round_sig_strikes(...)`, mesmo contrato das funções da Parte 5.
-- [ ] Fazer o merge por `(fight_id, fighter_id[, round])` dentro de
+- [x] Fazer o merge por `(fight_id, fighter_id[, round])` dentro de
       `build_fight_stats` / `build_round_stats`. Se a seção não existir, colunas
       nulas (não zero).
-- [ ] Checagem no build (log `WARNING`, não bloqueia): `head+body+leg == sig_str` e
+- [x] Checagem no build (log `WARNING`, não bloqueia): `head+body+leg == sig_str` e
       `distance+clinch+ground == sig_str` para landed e attempted; a coluna
       `sig_str_*` da seção de significativos deve bater com a da seção de totais.
-- [ ] Ampliar `tests/test_parse_fight_stats.py` com os novos campos.
+- [x] Ampliar `tests/test_parse_fight_stats.py` com os novos campos.
 
 **Entregáveis:** `parse/fight_stats.py` atualizado, testes, CSVs com todas as colunas da spec.
 
@@ -660,7 +660,18 @@ print(len(ok), 'linhas com alvo/posição de', len(fs))"
 
 **Notas de execução**
 
-_(vazio)_
+- 2026-09-21 — `parse_sig_strikes` / `parse_round_sig_strikes` reutilizam `_parse_table` com
+  `SIG_HEADER`/`SIG_SPEC` (9 colunas: Fighter, Sig. str, %, Head, Body, Leg, Distance, Clinch,
+  Ground). `_build_stats` agora recebe os dois parsers e faz o merge por chave; a coluna
+  `sig_str` da seção de significativos sai como `_sig_check_*` só para conferência e é
+  removida antes de gravar. 211 testes.
+- Checagens no build (`_check_sig`, WARNING, não bloqueia): `sig_str` totais == significativos;
+  `head+body+leg == sig_str` e `distance+clinch+ground == sig_str` (landed e attempted).
+  Coleta parcial (~115 eventos): 2 790 linhas em `fight_stats`, 6 844 em `round_stats`,
+  **0 sem significativos, 0 inconsistências**; soma dos rounds == totais nas 6 colunas novas.
+- Se só a seção de significativos faltar, as 12 colunas ficam nulas (testado com HTML
+  sintético). `FIGHT_STATS_COLUMNS`/`ROUND_STATS_COLUMNS` agora têm todas as colunas da spec §4.
+- **Pendência:** mesma da Parte 5 — confirmar com lutas antigas reais quando a coleta chegar lá.
 
 ---
 
