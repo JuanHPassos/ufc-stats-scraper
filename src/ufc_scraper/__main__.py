@@ -16,6 +16,7 @@ import logging
 import sys
 
 from .config import Settings, settings_from_args
+from .http import ChallengeRequired
 from .logging_setup import setup_logging
 
 log = logging.getLogger("ufc_scraper")
@@ -23,6 +24,7 @@ log = logging.getLogger("ufc_scraper")
 TABLES = ("events", "fights", "fight_stats", "round_stats", "fighters")
 FORMATS = ("csv", "parquet", "sqlite")
 EXIT_NOT_IMPLEMENTED = 2
+EXIT_CHALLENGE = 3
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -58,8 +60,23 @@ def _not_implemented(command: str) -> int:
     return EXIT_NOT_IMPLEMENTED
 
 
+def cmd_crawl(args: argparse.Namespace, settings: Settings) -> int:
+    from .crawl import run_crawl
+
+    if settings.mode == "incremental":
+        return _not_implemented("crawl --mode incremental")  # Parte 9
+    try:
+        report = run_crawl(settings, limit=args.limit)
+    except ChallengeRequired as exc:
+        log.critical("coleta abortada: desafio anti-bot não passou (%s)", exc)
+        return EXIT_CHALLENGE
+    return 1 if report.failed else 0
+
+
 def run(args: argparse.Namespace, settings: Settings) -> int:
     """Despacha o subcomando. Cada parte do plano substitui o stub correspondente."""
+    if args.command == "crawl":
+        return cmd_crawl(args, settings)
     return _not_implemented(args.command)
 
 

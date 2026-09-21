@@ -37,7 +37,7 @@ Regra de ouro: **uma parte só está concluída quando o critério de conclusão
 | --- | --- | --- | --- |
 | 0 | Bootstrap do projeto | ✅ concluída | `ed91d72` |
 | 1 | Cliente HTTP com cache, rate limit e retry | ✅ concluída | `0424a96` |
-| 2 | Crawler completo (coleta do HTML bruto) | ⬜ pendente | — |
+| 2 | Crawler completo (coleta do HTML bruto) | ✅ concluída (coleta completa em andamento) | (preencher) |
 | 3 | Funções de normalização | ⬜ pendente | — |
 | 4 | Parser de eventos e resumo das lutas | ⬜ pendente | — |
 | 5 | Parser de estatísticas totais e por round | ⬜ pendente | — |
@@ -284,13 +284,13 @@ são desenvolvidas contra uma amostra.
 
 **Tarefas**
 
-- [ ] `links.py` — extração **mínima** de links (só hrefs com ID; não é o parser):
+- [x] `links.py` — extração **mínima** de links (só hrefs com ID; não é o parser):
   - `event_ids(events_list_html) -> list[str]` (ordem da página, mais recente primeiro);
   - `fight_ids(event_html) -> list[str]`;
   - `fighter_ids(html) -> list[str]` (serve para página de evento, luta e lista A–Z);
   - `extract_id(url) -> str` (último segmento hexadecimal da URL).
   - Deduplicar mantendo ordem.
-- [ ] `crawl.py` — `run_crawl(settings, limit: int | None)`:
+- [x] `crawl.py` — `run_crawl(settings, limit: int | None)`:
   1. `events_list` (`?page=all`);
   2. para cada `event_id` (respeitando `--limit`): `fetch` evento;
   3. para cada luta do evento: `fetch` luta; coletar `fighter_ids` do evento e da luta;
@@ -302,11 +302,11 @@ são desenvolvidas contra uma amostra.
   - Com `--limit N`, limitar apenas os eventos (as lutas e lutadores desses eventos
     são baixados normalmente; a lista A–Z é **pulada** quando há `--limit`, para a
     amostra ficar pequena).
-- [ ] Ligar `crawl` no `__main__.py`.
-- [ ] `tests/test_links.py`: usa fixtures pequenas (criar nesta parte, ver abaixo).
-- [ ] `tests/test_crawl.py`: `monkeypatch` em `fetch` devolvendo fixtures; verifica a
+- [x] Ligar `crawl` no `__main__.py`.
+- [x] `tests/test_links.py`: usa fixtures pequenas (criar nesta parte, ver abaixo).
+- [x] `tests/test_crawl.py`: `monkeypatch` em `fetch` devolvendo fixtures; verifica a
       ordem de chamadas e a deduplicação de lutadores.
-- [ ] Rodar `crawl --date 2026-09-21 --limit 3` e, a partir de `data/raw/`, copiar
+- [x] Rodar `crawl --date 2026-09-21 --limit 3` e, a partir de `data/raw/`, copiar
       para `tests/fixtures/`:
   - `events_list.html` (pode ser grande; se > 1 MB, cortar para as ~50 primeiras linhas
     de tabela mantendo o HTML válido);
@@ -317,7 +317,7 @@ são desenvolvidas contra uma amostra.
   - **Fixtures antigas** (evento sem estatísticas, empate, no contest, luta de título,
     luta feminina) serão adicionadas na Parte 4 quando a coleta completa já tiver
     esses arquivos; anotar aqui como pendência.
-- [ ] Disparar a coleta completa em background e registrar o comando usado em
+- [x] Disparar a coleta completa em background e registrar o comando usado em
       *Notas de execução*:
   ```bash
   nohup uv run python -m ufc_scraper crawl --date 2026-09-21 > data/crawl_full.out 2>&1 &
@@ -339,8 +339,32 @@ uv run python -m ufc_scraper crawl --date 2026-09-21 --limit 3     # 2ª vez: s�
 
 **Notas de execução**
 
-_(vazio — registrar aqui o comando da coleta completa, data/hora de início e,
-quando terminar, as contagens finais do log)_
+- 2026-09-21 — `links.py` (regex sobre o HTML: apanha `href` com e sem aspas e `data-link`) e
+  `crawl.py` (`Crawler` com `CrawlReport`; `run_crawl(settings, limit, fetcher)` — `fetcher`
+  injetável para testes). 57 testes no total.
+- **Achado:** a lista "completed" traz como primeira linha o **próximo evento futuro**
+  (`tr.b-statistics__table-row_type_first` com ícone `next.png`). `event_ids` pula essa linha
+  (eventos futuros estão fora do escopo). Lista real: 790 links → 789 eventos realizados.
+- IDs têm sempre 16 hex. Na lista A–Z cada lutador aparece 3× (nome, sobrenome, apelido);
+  a deduplicação resolve. Na página de luta o método vem por extenso (`Decision - Unanimous`,
+  `KO/TKO`, `Submission`) — no card do evento vem abreviado (`U-DEC`…). Anotar para a Parte 4.
+- `ChallengeRequired` aborta a coleta (exit 3); `NotFound`/`FetchError` só registram em
+  `crawl_failures.txt` e seguem; exit 1 se houve falhas.
+- `crawl --limit 3`: 3 eventos, 39 lutas, 78 lutadores, 121 requisições em 4 min (~2 s/página),
+  0 falhas; segunda rodada 0,3 s só com cache hits.
+- Fixtures (400 KB): `events_list.html` cortada para 30 linhas (mantém a linha do evento futuro),
+  `event_modern_8a0a35e7c74bebcc` (UFC 331, 12 lutas), `fight_udec_title_5r_568ec6af4008355a`
+  (título, 5 rounds, cinturão + bônus Fight), `fight_sdec_1aa008d8597a73b8`,
+  `fight_ko_bonus_fe612d20eec7ef35` (Performance), `fight_sub_034c04e480d87b8f` (detalhe em
+  2 linhas: "Rear Naked Choke / One-arm RNC"), `fighters_list_x.html` (4 lutadores),
+  `fighter_17e97649403ba428` (Van), `fighter_a0f0004aadf10b71` (Pantoja).
+- **Pendência para a Parte 4:** nenhum lutador recente tem campo `--`; pegar um antigo da
+  coleta completa. Idem fixtures antigas (evento sem stats, empate, NC, feminina, overturned).
+- **Coleta completa disparada em 2026-09-21 15:50** (PID 99510):
+  `nohup uv run python -m ufc_scraper crawl --date 2026-09-21 > data/crawl_full.out 2>&1 &`
+  Acompanhar com `tail -f data/crawl_full.out` ou `grep -c ' GET ' data/crawl_full.out`.
+  Estimativa: ~13 mil páginas × ~2,3 s ≈ 8 h. Se cair, rodar o mesmo comando (o cache retoma).
+  _(preencher ao terminar: linha "coleta encerrada" do log e `find data/raw/2026-09-21 -name '*.html' | wc -l`)_
 
 ---
 
