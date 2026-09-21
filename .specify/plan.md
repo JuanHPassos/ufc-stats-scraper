@@ -44,7 +44,7 @@ Regra de ouro: **uma parte só está concluída quando o critério de conclusão
 | 6 | Parser de golpes significativos por alvo e posição | ✅ concluída | `5d49055` |
 | 7 | Parser de lutadores | ✅ concluída (critério de cobertura fica para o fim da coleta) | `e69b72f` |
 | 8 | Validação, relatório de cobertura e exportação | 🟨 código e testes prontos; rodar critério ao fim da coleta | `2f46ca0` |
-| 9 | Modo incremental | ⬜ pendente | — |
+| 9 | Modo incremental | 🟨 código, testes e README prontos; rodar critério ao fim da coleta | (preencher) |
 | 10 | Conferência manual e documentação final | ⬜ pendente | — |
 
 Estados: `⬜ pendente` · `🟨 em andamento` · `✅ concluída`
@@ -838,7 +838,7 @@ nova completa e consistente.
 
 **Tarefas**
 
-- [ ] `crawl.py`: `run_incremental(settings, base_date)`:
+- [x] `crawl.py`: `run_incremental(settings, base_date)`:
   1. baixa `events_list` novo;
   2. lê os `event_id` já presentes em `raw/<base_date>/events/`;
   3. para os IDs **novos**: baixa evento, lutas e lutadores envolvidos;
@@ -847,10 +847,10 @@ nova completa e consistente.
   5. para todo o resto (eventos antigos, lutas antigas, lutadores não envolvidos):
      **copia** (ou hard-link) de `raw/<base_date>/` para `raw/<date>/`, sem rede;
   6. grava `raw/<date>/manifest.json` com `base_date`, IDs novos e contagens.
-- [ ] Flag `--base-date` (padrão: pasta mais recente em `data/raw/` diferente de `--date`).
-- [ ] `tests/test_crawl_incremental.py`: dois diretórios temporários, `fetch` mockado,
+- [x] Flag `--base-date` (padrão: pasta mais recente em `data/raw/` diferente de `--date`).
+- [x] `tests/test_crawl_incremental.py`: dois diretórios temporários, `fetch` mockado,
       verifica que só os IDs novos chamam a rede e que a pasta final tem tudo.
-- [ ] Documentar no README o fluxo: `crawl --mode incremental` → `parse` → `validate` → `export`.
+- [x] Documentar no README o fluxo: `crawl --mode incremental` → `parse` → `validate` → `export`.
 
 **Entregáveis:** `crawl.py` atualizado, teste, seção no README.
 
@@ -867,7 +867,24 @@ envolvidos + 1; validação passa na pasta nova.
 
 **Notas de execução**
 
-_(vazio)_
+- 2026-09-21 — `Crawler.run_incremental(base_date)` + `run_incremental()` de módulo,
+  `latest_base()`, flag `--base-date`, `manifest.json`, seção no README. 9 testes novos
+  (267 no total), usando o `Fetcher` real com sessão falsa (mapa URL → HTML) para exercitar
+  cache e `force` de verdade.
+- **Ordem: baixa primeiro, copia depois.** Baixa lista de eventos, eventos novos (+ lutas),
+  perfis dos envolvidos, as 26 listas A–Z (2ª rota da spec; 26 requisições, desprezível) e
+  perfis inéditos nas listas; então `_copy_missing` traz da base tudo que ainda não existe na
+  pasta nova. Assim a retomada é correta: o baixado vira cache hit e cópias são puladas.
+- **Cópia por hard link** (`os.link`, fallback `shutil.copy2`): instantânea, sem duplicar
+  espaço, e a base nunca muda (o `Fetcher` grava com `os.replace`, que substitui a entrada do
+  diretório). Bônus: `_same_content` (samefile ou `filecmp`) detecta perfil de envolvido que
+  é só cópia da base e força a renovação — cobre o caso de retomada após cópia.
+- `CrawlReport` ganhou `new_events`, `refreshed_fighters`, `copied`. 404 de perfil no
+  incremental vai para `crawl_failures.txt` e segue.
+- **Critério de conclusão pendente da coleta completa:** o teste real
+  (`crawl --mode incremental --date <hoje> --base-date 2026-09-21` → `parse` → `validate`)
+  só faz sentido com a base completa — senão o incremental baixaria tudo que falta na base.
+  Rodar junto com o fechamento da Parte 8.
 
 ---
 

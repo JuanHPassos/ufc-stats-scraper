@@ -41,6 +41,7 @@ def build_parser() -> argparse.ArgumentParser:
     crawl = sub.add_parser("crawl", parents=[common], help="Baixa o HTML bruto para data/raw/<date>/")
     crawl.add_argument("--limit", type=int, help="Limita o número de eventos (amostra para testes)")
     crawl.add_argument("--mode", choices=("full", "incremental"), help="Padrão: full")
+    crawl.add_argument("--base-date", dest="base_date", help="(incremental) coleta-base. Padrão: a mais recente em data/raw/")
     crawl.add_argument("--delay-min", dest="delay_min", type=float, help="Intervalo mínimo entre requisições (s)")
     crawl.add_argument("--delay-max", dest="delay_max", type=float, help="Intervalo máximo entre requisições (s)")
 
@@ -61,15 +62,23 @@ def _not_implemented(command: str) -> int:
 
 
 def cmd_crawl(args: argparse.Namespace, settings: Settings) -> int:
-    from .crawl import run_crawl
+    from .crawl import latest_base, run_crawl, run_incremental
 
-    if settings.mode == "incremental":
-        return _not_implemented("crawl --mode incremental")  # Parte 9
     try:
-        report = run_crawl(settings, limit=args.limit)
+        if settings.mode == "incremental":
+            base_date = args.base_date or latest_base(settings)
+            if base_date is None:
+                log.error("modo incremental exige uma coleta-base em data/raw/ (ou --base-date)")
+                return 1
+            report = run_incremental(settings, base_date)
+        else:
+            report = run_crawl(settings, limit=args.limit)
     except ChallengeRequired as exc:
         log.critical("coleta abortada: desafio anti-bot não passou (%s)", exc)
         return EXIT_CHALLENGE
+    except (FileNotFoundError, ValueError) as exc:
+        log.error("%s", exc)
+        return 1
     return 1 if report.failed else 0
 
 
