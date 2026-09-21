@@ -36,7 +36,7 @@ Regra de ouro: **uma parte só está concluída quando o critério de conclusão
 | Parte | Título | Estado | Commit |
 | --- | --- | --- | --- |
 | 0 | Bootstrap do projeto | ✅ concluída | `ed91d72` |
-| 1 | Cliente HTTP com cache, rate limit e retry | ✅ concluída | (preencher) |
+| 1 | Cliente HTTP com cache, rate limit e retry | ✅ concluída | `0424a96` |
 | 2 | Crawler completo (coleta do HTML bruto) | ⬜ pendente | — |
 | 3 | Funções de normalização | ⬜ pendente | — |
 | 4 | Parser de eventos e resumo das lutas | ⬜ pendente | — |
