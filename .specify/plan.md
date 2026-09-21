@@ -41,7 +41,7 @@ Regra de ouro: **uma parte só está concluída quando o critério de conclusão
 | 3 | Funções de normalização | ✅ concluída | `a8ae2d9` |
 | 4 | Parser de eventos e resumo das lutas | ✅ concluída (reconferir com eventos antigos) | `af71019` |
 | 5 | Parser de estatísticas totais e por round | ✅ concluída | `d69ebcc` |
-| 6 | Parser de golpes significativos por alvo e posição | ✅ concluída | (preencher) |
+| 6 | Parser de golpes significativos por alvo e posição | ✅ concluída | `5d49055` |
 | 7 | Parser de lutadores | ⬜ pendente | — |
 | 8 | Validação, relatório de cobertura e exportação | ⬜ pendente | — |
 | 9 | Modo incremental | ⬜ pendente | — |
