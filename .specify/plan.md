@@ -42,7 +42,7 @@ Regra de ouro: **uma parte só está concluída quando o critério de conclusão
 | 4 | Parser de eventos e resumo das lutas | ✅ concluída (reconferir com eventos antigos) | `af71019` |
 | 5 | Parser de estatísticas totais e por round | ✅ concluída | `d69ebcc` |
 | 6 | Parser de golpes significativos por alvo e posição | ✅ concluída | `5d49055` |
-| 7 | Parser de lutadores | ⬜ pendente | — |
+| 7 | Parser de lutadores | ✅ concluída (critério de cobertura fica para o fim da coleta) | (preencher) |
 | 8 | Validação, relatório de cobertura e exportação | ⬜ pendente | — |
 | 9 | Modo incremental | ⬜ pendente | — |
 | 10 | Conferência manual e documentação final | ⬜ pendente | — |
@@ -685,7 +685,7 @@ mas a ordem oficial é esta).
 
 **Tarefas**
 
-- [ ] `parse/fighters.py`:
+- [x] `parse/fighters.py`:
   - `parse_fighter(html, fighter_id, settings) -> dict` → `fighter_id, name, nickname,
     height_cm, weight_kg, reach_cm, stance, dob, wins, losses, draws, nc,
     slpm, str_acc, sapm, str_def, td_avg, td_acc, td_def, sub_avg, scraped_at, source_url`.
@@ -696,9 +696,9 @@ mas a ordem oficial é esta).
     para garantir cobertura: qualquer ID da lista sem perfil baixado gera `WARNING`).
   - **Não** extrair a lista de lutas do perfil (já está em `fights`; a spec §8 diz
     que o perfil é só referência).
-- [ ] `build_fighters(settings)` → `fighters.csv`.
-- [ ] Ligar `parse --table fighters`.
-- [ ] `tests/test_parse_fighters.py`: lutador completo, lutador com `--` em
+- [x] `build_fighters(settings)` → `fighters.csv`.
+- [x] Ligar `parse --table fighters`.
+- [x] `tests/test_parse_fighters.py`: lutador completo, lutador com `--` em
       altura/reach/dob (nulos), lutador com NC no cartel, nome com acento preservado.
 
 **Entregáveis:** `src/ufc_scraper/parse/fighters.py`, teste, `fighters.csv`.
@@ -721,7 +721,20 @@ tratar na Parte 8 ou recoletar).
 
 **Notas de execução**
 
-_(vazio)_
+- 2026-09-21 — `parse/fighters.py` (`parse_fighter`, `parse_fighters_list`, `FIGHTERS_COLUMNS`),
+  `build_fighters` em `parse/__init__.py`, CLI `parse --table fighters`. 221 testes.
+- Perfil: nome em `span.b-content__title-highlight`, cartel em `span.b-content__title-record`
+  (`Record: 18-2-0` / `9-4-0 (1 NC)`), apelido em `p.b-content__Nickname` (pode ser vazio),
+  campos em `li.b-list__box-list-item` com rótulo em `<i>` (há um `<li>` vazio separador).
+  Rótulos desconhecidos e valores inválidos geram WARNING e nulo, sem quebrar.
+- Lista A–Z: tabela com First/Last/Nickname/Ht./Wt./Reach/Stance/W/L/D/Belt; cada lutador tem
+  3 links (nome, sobrenome, apelido) — deduplicado. Reach pode vir decimal (`70.0"`).
+- **O critério "0 citados sem perfil" só pode ser conferido ao fim da coleta**: o crawler
+  baixa os perfis por último (lista → eventos → lutas → A–Z → lutadores). Agora: 78 perfis
+  (da amostra `--limit 3`), 673 IDs de `fights` sem perfil e 4 da letra `x` sem perfil —
+  tudo esperado. Reexecutar o critério na Parte 8, quando a coleta tiver terminado.
+- Nulos na amostra: `nickname` 29 %, `stance` 1 %, `nc` 92 % (só quem tem NC no cartel).
+  Nenhum `--` em altura/reach/dob nos 78 recentes; lutadores antigos devem trazer.
 
 ---
 

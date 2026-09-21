@@ -26,6 +26,7 @@ from .fight_stats import (
     parse_sig_strikes,
     parse_totals,
 )
+from .fighters import FIGHTERS_COLUMNS, parse_fighter, parse_fighters_list
 from .fights import parse_fight_summary
 
 log = logging.getLogger(__name__)
@@ -277,9 +278,33 @@ def build_round_stats(settings: Settings) -> pd.DataFrame:
     )
 
 
+# -- fighters -----------------------------------------------------------------
+
+
+def build_fighters(settings: Settings) -> pd.DataFrame:
+    """Um perfil por linha. A lista A–Z só confere cobertura: ID listado sem perfil -> WARNING."""
+    ids = raw_ids(settings, "fighters")
+    rows = [parse_fighter(read_raw(settings, "fighter", fid), fid, settings) for fid in ids]
+    df = pd.DataFrame(rows, columns=FIGHTERS_COLUMNS)
+    for col in ("wins", "losses", "draws", "nc"):
+        df[col] = df[col].astype("Int64")
+
+    listed: dict[str, str | None] = {}
+    for letter in raw_ids(settings, "fighters_list"):
+        for r in parse_fighters_list(read_raw(settings, "fighters_list", letter), settings):
+            listed.setdefault(r["fighter_id"], r["name"])
+    missing = sorted(set(listed) - set(ids))
+    for fid in missing:
+        log.warning("lutador %s (%s) está na lista A–Z mas não tem perfil salvo", fid, listed[fid])
+    log.info("fighters: %d perfis; lista A–Z: %d IDs, %d sem perfil", len(df), len(listed), len(missing))
+    write_csv(df, settings, "fighters")
+    return df
+
+
 BUILDERS: dict[str, Callable[[Settings], pd.DataFrame]] = {
     "events": build_events,
     "fights": build_fights,
     "fight_stats": build_fight_stats,
     "round_stats": build_round_stats,
+    "fighters": build_fighters,
 }

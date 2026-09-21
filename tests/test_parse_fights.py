@@ -186,4 +186,4 @@ def test_cli_parse_runs_all_tables(raw_tree):
     assert cli.main(argv) == 0
     out = raw_tree.data_dir / "processed" / "2026-09-21"
     assert (out / "events.csv").exists() and (out / "fights.csv").exists()
-    assert cli.main(argv + ["--table", "fighters"]) == 2  # ainda não implementada
+    assert cli.main(argv + ["--table", "fighters"]) == 0  # sem perfis salvos: tabela vazia, exit 0
