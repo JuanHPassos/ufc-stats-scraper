@@ -37,15 +37,15 @@ Regra de ouro: **uma parte só está concluída quando o critério de conclusão
 | --- | --- | --- | --- |
 | 0 | Bootstrap do projeto | ✅ concluída | `ed91d72` |
 | 1 | Cliente HTTP com cache, rate limit e retry | ✅ concluída | `0424a96` |
-| 2 | Crawler completo (coleta do HTML bruto) | ✅ concluída (coleta completa em andamento) | `b03a018` |
+| 2 | Crawler completo (coleta do HTML bruto) | ✅ concluída (coleta encerrada 2026-09-22) | `b03a018` |
 | 3 | Funções de normalização | ✅ concluída | `a8ae2d9` |
-| 4 | Parser de eventos e resumo das lutas | ✅ concluída (reconferir com eventos antigos) | `af71019` |
+| 4 | Parser de eventos e resumo das lutas | ✅ concluída | `af71019` + `ecfee11` |
 | 5 | Parser de estatísticas totais e por round | ✅ concluída | `d69ebcc` |
 | 6 | Parser de golpes significativos por alvo e posição | ✅ concluída | `5d49055` |
-| 7 | Parser de lutadores | ✅ concluída (critério de cobertura fica para o fim da coleta) | `e69b72f` |
-| 8 | Validação, relatório de cobertura e exportação | 🟨 código e testes prontos; rodar critério ao fim da coleta | `2f46ca0` |
-| 9 | Modo incremental | 🟨 código, testes e README prontos; rodar critério ao fim da coleta | `d0bba24` |
-| 10 | Conferência manual e documentação final | 🟨 script e README prontos; conferência manual e spec ao fim da coleta | `5ffda1c` |
+| 7 | Parser de lutadores | ✅ concluída | `e69b72f` |
+| 8 | Validação, relatório de cobertura e exportação | ✅ concluída | `2f46ca0` + `ecfee11` |
+| 9 | Modo incremental | ✅ concluída | `d0bba24` |
+| 10 | Conferência manual e documentação final | 🟨 só falta a conferência humana das 10 lutas | `5ffda1c` |
 
 Estados: `⬜ pendente` · `🟨 em andamento` · `✅ concluída`
 
@@ -358,13 +358,19 @@ uv run python -m ufc_scraper crawl --date 2026-09-21 --limit 3     # 2ª vez: s�
   `fight_ko_bonus_fe612d20eec7ef35` (Performance), `fight_sub_034c04e480d87b8f` (detalhe em
   2 linhas: "Rear Naked Choke / One-arm RNC"), `fighters_list_x.html` (4 lutadores),
   `fighter_17e97649403ba428` (Van), `fighter_a0f0004aadf10b71` (Pantoja).
-- **Pendência para a Parte 4:** nenhum lutador recente tem campo `--`; pegar um antigo da
-  coleta completa. Idem fixtures antigas (evento sem stats, empate, NC, feminina, overturned).
+- ~~Pendência: fixtures antigas~~ **Resolvido em 2026-09-22** com a coleta completa:
+  `event_old_ufc2_*`, `fight_old_tournament_title_*`, `fight_old_no_stats_*`,
+  `fight_old_wc_divergence_*`, `fighter_sparse_*` + `tests/test_parse_old_eras.py`.
 - **Coleta completa disparada em 2026-09-21 15:50** (PID 99510):
   `nohup uv run python -m ufc_scraper crawl --date 2026-09-21 > data/crawl_full.out 2>&1 &`
   Acompanhar com `tail -f data/crawl_full.out` ou `grep -c ' GET ' data/crawl_full.out`.
   Estimativa: ~13 mil páginas × ~2,3 s ≈ 8 h. Se cair, rodar o mesmo comando (o cache retoma).
-  _(preencher ao terminar: linha "coleta encerrada" do log e `find data/raw/2026-09-21 -name '*.html' | wc -l`)_
+  **Encerrada em 2026-09-22 13:49** (22 h de relógio; ~12 h a menos se a máquina não tivesse
+  suspendido durante a noite — `nohup` sobrevive a fechar terminal e bloquear tela, mas não a
+  suspender a máquina). Log final:
+  `eventos=789 lutas=8897 lutadores=4618 listas_az=26 | requisições=14219 cache_hits=122`
+  `retries=8 desafios=1 | 404=0 falhas=0` — 14 331 arquivos, 532 MB, **zero falhas**.
+  Backup: `~/ufc-stats-raw-2026-09-21.tar.gz` (46 MB, comprime 10:1) + `.sha256`.
 
 ---
 
@@ -457,8 +463,9 @@ menos com eventos antigos já baixados) para as fixtures adicionais.
 
 **Tarefas**
 
-- [~] Adicionar fixtures pendentes da Parte 2 (**parcial**: empate, NC, overturned, feminina e título já
-      estão; evento antigo sem estatísticas e lutador com `--` ficam para quando a coleta chegar lá): evento antigo sem estatísticas
+- [x] Adicionar fixtures pendentes da Parte 2 (feito em duas etapas: empate/NC/overturned/feminina/título
+      na própria Parte 4; evento antigo sem stats, torneio, divergência de categoria e lutador com `--`
+      em 2026-09-22, com a coleta completa): evento antigo sem estatísticas
       (ex.: UFC 1–10, 1993–96), luta com **empate**, luta com **no contest**, luta de
       **título**, luta **feminina**, luta com **overturned**/DQ se existir. Escolher
       IDs consultando `data/raw/` (grep por `Draw`, `NC`, `belt`, `Women`).
@@ -617,8 +624,9 @@ print('rounds != totais:', (m.sig_str_landed != m.r).sum(), 'de', len(m))"
   `ctrl ≤ duração` sem violações; `max(round)` em `round_stats` == `end_round` em 896/896.
 - `FIGHT_STATS_COLUMNS`/`ROUND_STATS_COLUMNS` em `parse/__init__.py`; a Parte 6 acrescenta as
   colunas por alvo/posição às mesmas tabelas.
-- **Pendência:** confirmar com lutas antigas que páginas sem tabela devolvem `[]` (o teste usa
-  HTML sintético; ainda não há fixture real dos anos 90).
+- ~~Pendência: confirmar com lutas antigas~~ **Confirmado em 2026-09-22** com fixture real
+  (`fight_old_no_stats_8e03db41687d9132`, UFC 6 de 1995): `parse_totals` e `parse_round_totals`
+  devolvem `[]`. Na coleta completa, 21 das 8 897 lutas não têm tabela.
 
 ---
 
@@ -671,7 +679,8 @@ print(len(ok), 'linhas com alvo/posição de', len(fs))"
   **0 sem significativos, 0 inconsistências**; soma dos rounds == totais nas 6 colunas novas.
 - Se só a seção de significativos faltar, as 12 colunas ficam nulas (testado com HTML
   sintético). `FIGHT_STATS_COLUMNS`/`ROUND_STATS_COLUMNS` agora têm todas as colunas da spec §4.
-- **Pendência:** mesma da Parte 5 — confirmar com lutas antigas reais quando a coleta chegar lá.
+- ~~Pendência: mesma da Parte 5~~ **Confirmado em 2026-09-22**: 0 inconsistências de soma
+  (alvo e posição) em 17 752 linhas de `fight_stats` e 41 792 de `round_stats`.
 
 ---
 
@@ -732,7 +741,9 @@ tratar na Parte 8 ou recoletar).
 - **O critério "0 citados sem perfil" só pode ser conferido ao fim da coleta**: o crawler
   baixa os perfis por último (lista → eventos → lutas → A–Z → lutadores). Agora: 78 perfis
   (da amostra `--limit 3`), 673 IDs de `fights` sem perfil e 4 da letra `x` sem perfil —
-  tudo esperado. Reexecutar o critério na Parte 8, quando a coleta tiver terminado.
+  tudo esperado. **Reexecutado em 2026-09-22 com a coleta completa: 4 618 perfis, lista A–Z
+  com 4 618 IDs, 0 sem perfil, 0 lutadores de `fights` sem perfil.** O fallback pela lista A–Z
+  não foi necessário (nenhum 404).
 - **Correção pós-revisão:** `nc` = 0 quando o cartel não tem sufixo `(N NC)` — o site só mostra
   o sufixo quando N > 0, então o campo está presente, não ausente (`parse_record` ajustado).
   Nulos na amostra agora: `nickname` 29 %, `stance` 1 %. Nenhum `--` em altura/reach/dob nos
@@ -780,7 +791,7 @@ comando `export` que gera CSV + Parquet (SQLite opcional).
 - [x] Ligar `validate` e `export` no `__main__.py`.
 - [x] `tests/test_validate.py`: DataFrames pequenos construídos à mão, um caso
       passando e um falhando por checagem.
-- [ ] (ao fim da coleta) Corrigir no parser qualquer violação real encontrada (voltar à parte
+- [x] (ao fim da coleta) Corrigir no parser qualquer violação real encontrada (voltar à parte
       correspondente, registrar nas notas dela).
 
 **Entregáveis:** `src/ufc_scraper/{validate,export}.py`, testes, `validation_report.md`,
@@ -815,16 +826,32 @@ ls data/processed/2026-09-21/*.parquet | wc -l                             # 5
   tabela e o da outra). Nenhuma violação real de parser encontrada até aqui.
 - Export testado: 5 Parquet (`Int64`/`boolean`/`date`/`string`), `ufc_stats.sqlite` com 5
   tabelas e PKs.
-- **O QUE FALTA (quando a coleta terminar — `grep 'coleta encerrada' data/crawl_full.out`):**
-  ```bash
-  uv run python -m ufc_scraper parse    --date 2026-09-21          # snapshot estático das 5 tabelas
-  uv run python -m ufc_scraper validate --date 2026-09-21; echo exit=$?   # esperado: 0
-  uv run python -m ufc_scraper export   --date 2026-09-21 --format parquet
-  uv run python -m ufc_scraper export   --date 2026-09-21 --format sqlite
-  ```
-  Depois: colar aqui o resumo de `validation_report.md` e os anos de `coverage_report.md`;
-  conferir os WARNINGs do `parse` nas eras antigas (pendências das Partes 4–7); atualizar
-  as notas da Parte 2 com as contagens finais da coleta; marcar esta parte ✅.
+- **2026-09-22 — rodado sobre a coleta completa. `validate` PASSOU: 13/13 checagens, exit 0.**
+  `parse` levou ~10 min (789 eventos, 8 897 lutas, 17 752 `fight_stats`, 41 792 `round_stats`,
+  4 618 lutadores). Export: 5 Parquet (3,2 MB no total, contra 13 MB de CSV) e
+  `ufc_stats.sqlite` (17 MB).
+- **Duas correções que só apareceram com os dados de 1994–2001** (commit `ecfee11`):
+  1. `parse_time_format` contava o prefixo `N Rnd`, mas nos formatos com overtime a luta
+     podia ir além: `1 Rnd + OT (12-3)` são 2 rounds possíveis, `1 Rnd + 2OT (15-3-3)` são 3.
+     Agora o parêntese manda (um tempo por round). **A checagem `end_round ≤ scheduled_rounds`
+     pegou isso** — 29 lutas violavam. O plano da Parte 3 previa `-> 1`; a decisão mudou
+     diante dos dados reais.
+  2. `weight_class`: nas eras antigas o título da página é o nome do torneio
+     (`UFC 2 Tournament Title Bout`, `UFC Superfight Championship Bout`), sem categoria de
+     peso — nesses 17 casos o card (`Open Weight`) é a fonte boa. Quando as duas fontes dão
+     categorias conhecidas e **diferentes** (13 lutas de 1997–2001, divisões renomeadas: o
+     "Middleweight" de então é o Light Heavyweight de hoje), mantém-se a da página e a do
+     card fica na coluna nova `weight_class_card`.
+- **Avisos que restam e são legítimos** (não são bugs; ficam no log por decisão da spec §5):
+  17 categorias não mapeadas (nomes de torneio dos anos 90, todas com peso vindo do card);
+  13 divergências card/página acima; 1 `No Time Limit` (inofensivo: as 31 lutas nesse
+  formato terminaram no round 1); 1 luta com placares atípicos — `7d947be4c15ebe36`
+  (UFC Fight Night, 2014): cartões 29-29, 29-28, 28-29 dão empate majoritário, mas o site
+  registra vitória por decisão dividida. É inconsistência do site; o parser sinalizou e
+  deixou `score_a`/`score_b` nulos em vez de inventar atribuição.
+- **Resposta à questão em aberto da spec §8** (critério: ≥ 95 % das lutas do ano, sem
+  regressão depois): `round_stats` e alvo/posição desde **1999**, `ctrl_seconds` desde
+  **2000**, placares dos juízes desde **2003**. Spec §8 atualizada com a tabela.
 
 ---
 
@@ -881,10 +908,15 @@ envolvidos + 1; validação passa na pasta nova.
   é só cópia da base e força a renovação — cobre o caso de retomada após cópia.
 - `CrawlReport` ganhou `new_events`, `refreshed_fighters`, `copied`. 404 de perfil no
   incremental vai para `crawl_failures.txt` e segue.
-- **Critério de conclusão pendente da coleta completa:** o teste real
-  (`crawl --mode incremental --date <hoje> --base-date 2026-09-21` → `parse` → `validate`)
-  só faz sentido com a base completa — senão o incremental baixaria tudo que falta na base.
-  Rodar junto com o fechamento da Parte 8.
+- **2026-09-22 — critério rodado contra a base completa e PASSOU.**
+  `crawl --mode incremental --date 2026-09-22 --base-date 2026-09-21`:
+  789 eventos na lista, **0 novos** (1 dia depois), 26 listas A–Z baixadas,
+  **29 requisições no total** (contra 14 219 da coleta cheia) e **1 minuto** (contra 22 h).
+  14 304 arquivos copiados por hard link: a pasta nova ocupa **7,6 MB** em vez de outros
+  532 MB. `parse` + `validate` na pasta nova: mesmos números (789/8 897/17 752/41 792/4 618)
+  e **validação PASSOU, exit 0**. `manifest.json` gravado com base, IDs novos e contagens.
+- A pasta `data/raw/2026-09-22/` e `data/processed/2026-09-22/` ficaram no disco como
+  evidência; podem ser apagadas (a coleta de referência para a análise é a **2026-09-21**).
 
 ---
 
@@ -901,14 +933,14 @@ projeto pronto para o grupo usar na análise.
       estratificadas por década (≥ 2 de antes de 2005, ≥ 2 de 2005–2015, ≥ 2 de
       2016+) e imprime, para cada uma, `source_url` e todas as colunas de `fights`,
       `fight_stats` e `round_stats`.
-- [ ] Conferir campo a campo com o site e registrar o resultado em
+- [ ] **(pendente — para uma pessoa do grupo)** Conferir campo a campo com o site e registrar o resultado em
       `.specify/manual_check.md` (tabela: fight_id, URL, campos divergentes, ação).
       Toda divergência vira correção no parser + teste de regressão com a fixture.
 - [x] README final: dicionário de dados (colunas das 5 tabelas com tipo e
       observação), como reproduzir uma coleta, como rodar validação, e a seção
       "Decisões" copiada da spec §8 (para quem for analisar saber que
       estatísticas de carreira do perfil **não** devem ser usadas como feature).
-- [ ] Atualizar spec §8 "Questões em aberto" com o que foi respondido (ano de
+- [x] Atualizar spec §8 "Questões em aberto" com o que foi respondido (ano de
       confiabilidade, formato escolhido).
 - [ ] Marcar este plano como concluído na tabela Status.
 
@@ -930,14 +962,22 @@ test -f .specify/manual_check.md && grep -c '^| ' .specify/manual_check.md   # �
   vazia de `.specify/manual_check.md`); README final com dicionário de dados das 5 tabelas,
   8 avisos para a análise (spec §8 + decisões das Partes 4–7), relatórios e estrutura do
   código. 280 testes.
-- **Falta (depende da coleta completa):**
-  1. `uv run python scripts/sample_fights.py --n 10 --seed 42 --date 2026-09-21 --template .specify/manual_check.md`
-     (hoje a amostra só tem 2016+; com a coleta completa as três eras entram);
-  2. conferir as 10 lutas no site, preencher `.specify/manual_check.md`; divergência →
-     correção + fixture + teste de regressão;
-  3. atualizar spec §8 "Questões em aberto" com os anos do `coverage_report.md` e o
-     formato escolhido (Parquet e SQLite estão ambos implementados);
-  4. marcar o plano como concluído.
+- **2026-09-22 — feito o que dependia da coleta completa, menos a conferência humana:**
+  - sorteio rodado: `scripts/sample_fights.py --n 10 --seed 42 --date 2026-09-21 --template
+    .specify/manual_check.md` → 4 lutas de antes de 2005 (1995–2000), 3 de 2005–2015,
+    3 de 2016+; tabela de registro criada em `.specify/manual_check.md`;
+  - spec §8 atualizada: os dois primeiros itens de "Questões em aberto" foram respondidos
+    (anos de confiabilidade por campo, com tabela; e "Parquet ou SQLite" — ambos são
+    gerados, não foi preciso escolher).
+- **FALTA (só isto):**
+  1. **Conferência humana das 10 lutas** — abrir cada URL de `.specify/manual_check.md`,
+     comparar campo a campo com a saída de `scripts/sample_fights.py` e preencher as duas
+     últimas colunas. Deve ser feita por uma pessoa do grupo, não pelo assistente: o ponto
+     dela é ter um olho independente sobre o que o código extraiu. Divergência → correção
+     no parser + fixture + teste de regressão.
+  2. Marcar esta parte e o plano como concluídos na tabela Status.
+- Questões da spec §8 que seguem abertas **por serem decisão de análise, não de scraper**:
+  como tratar lutas overturned; divisão de tarefas entre os implementadores.
 
 ---
 

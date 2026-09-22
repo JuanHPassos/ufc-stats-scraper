@@ -252,7 +252,25 @@ Esta seção serve de contexto para quem implementar, incluindo assistentes de I
 
 **Questões em aberto**
 
-- [ ] A partir de que ano o tempo de controle e as estatísticas por round são confiáveis? (sai do relatório de cobertura)
-- [ ] Formato final: Parquet ou SQLite?
-- [ ] Como tratar lutas com resultado anulado (overturned) na análise?
+- [x] ~~A partir de que ano o tempo de controle e as estatísticas por round são confiáveis?~~
+  **Respondido pela coleta de 2026-09-21** (`data/processed/<date>/coverage_report.md`),
+  usando o critério "≥ 95 % das lutas do ano, sem regressão nos anos seguintes":
+
+  | campo | confiável a partir de | observação |
+  | --- | --- | --- |
+  | estatísticas por round (`round_stats`) | **1999** | antes disso, 84–95 % conforme o ano |
+  | golpes significativos por alvo/posição | **1999** | mesma cobertura de `round_stats` |
+  | tempo de controle (`ctrl_seconds`) | **2000** | 0 % até 1998, 50 % em 1999, 100 % desde 2000 |
+  | placares dos juízes (em decisões) | **2003** | 0 % até 2000, 75 % em 2001, 80 % em 2002 |
+
+  Para a hipótese do grappling, que depende de `ctrl_seconds` e quedas, o recorte
+  seguro é **2000 em diante** (8 673 das 8 897 lutas, 97,5 %). Se a análise usar
+  placares de juízes, o recorte é 2003.
+
+- [x] ~~Formato final: Parquet ou SQLite?~~ **Ambos são gerados** (`export --format parquet|sqlite`),
+  com os mesmos tipos explícitos. Parquet para carregar em pandas; SQLite quando for
+  útil consultar com SQL. Não foi preciso escolher.
+- [ ] Como tratar lutas com resultado anulado (overturned) na análise? (o scraper marca
+  `result_type = no_contest` e preserva `method = OVERTURNED`, `details_raw` e os placares
+  originais; a decisão de incluir ou excluir é da análise)
 - [ ] Divisão de tarefas entre os dois implementadores.
