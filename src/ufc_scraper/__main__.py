@@ -1,0 +1,130 @@
+"""CLI do scraper.
+
+    python -m ufc_scraper crawl    --date YYYY-MM-DD [--limit N] [--mode full|incremental]
+    python -m ufc_scraper parse    --date YYYY-MM-DD [--table events|fights|fight_stats|round_stats|fighters]
+    python -m ufc_scraper validate --date YYYY-MM-DD
+    python -m ufc_scraper export   --date YYYY-MM-DD --format csv|parquet|sqlite
+
+Cada subcomando é ligado à sua implementação na parte correspondente do plano
+(.specify/plan.md). Enquanto não implementado, sai com código 2.
+"""
+
+from __future__ import annotations
+
+import argparse
+import logging
+import sys
+
+from .config import Settings, settings_from_args
+from .http import ChallengeRequired
+from .logging_setup import setup_logging
+
+log = logging.getLogger("ufc_scraper")
+
+TABLES = ("events", "fights", "fight_stats", "round_stats", "fighters")
+FORMATS = ("csv", "parquet", "sqlite")
+EXIT_NOT_IMPLEMENTED = 2
+EXIT_CHALLENGE = 3
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="ufc_scraper",
+        description="Scraper do UFC Stats: coleta HTML bruto e gera tabelas relacionais.",
+    )
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--date", help="Pasta da coleta (YYYY-MM-DD). Padrão: hoje.")
+    common.add_argument("--data-dir", dest="data_dir", help="Raiz dos dados. Padrão: data/")
+
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    crawl = sub.add_parser("crawl", parents=[common], help="Baixa o HTML bruto para data/raw/<date>/")
+    crawl.add_argument("--limit", type=int, help="Limita o número de eventos (amostra para testes)")
+    crawl.add_argument("--mode", choices=("full", "incremental"), help="Padrão: full")
+    crawl.add_argument("--base-date", dest="base_date", help="(incremental) coleta-base. Padrão: a mais recente em data/raw/")
+    crawl.add_argument("--delay-min", dest="delay_min", type=float, help="Intervalo mínimo entre requisições (s)")
+    crawl.add_argument("--delay-max", dest="delay_max", type=float, help="Intervalo máximo entre requisições (s)")
+
+    parse = sub.add_parser("parse", parents=[common], help="Gera as tabelas a partir do HTML salvo")
+    parse.add_argument("--table", choices=TABLES, help="Só esta tabela. Padrão: todas as implementadas")
+
+    sub.add_parser("validate", parents=[common], help="Roda os critérios de aceite (spec §7)")
+
+    export = sub.add_parser("export", parents=[common], help="Exporta as tabelas")
+    export.add_argument("--format", choices=FORMATS, default="parquet")
+
+    return parser
+
+
+def _not_implemented(command: str) -> int:
+    log.error("comando %r ainda não implementado (ver .specify/plan.md)", command)
+    return EXIT_NOT_IMPLEMENTED
+
+
+def cmd_crawl(args: argparse.Namespace, settings: Settings) -> int:
+    from .crawl import latest_base, run_crawl, run_incremental
+
+    try:
+        if settings.mode == "incremental":
+            base_date = args.base_date or latest_base(settings)
+            if base_date is None:
+                log.error("modo incremental exige uma coleta-base em data/raw/ (ou --base-date)")
+                return 1
+            report = run_incremental(settings, base_date)
+        else:
+            report = run_crawl(settings, limit=args.limit)
+    except ChallengeRequired as exc:
+        log.critical("coleta abortada: desafio anti-bot não passou (%s)", exc)
+        return EXIT_CHALLENGE
+    except (FileNotFoundError, ValueError) as exc:
+        log.error("%s", exc)
+        return 1
+    return 1 if report.failed else 0
+
+
+def cmd_parse(args: argparse.Namespace, settings: Settings) -> int:
+    from .parse import BUILDERS
+
+    if args.table and args.table not in BUILDERS:
+        return _not_implemented(f"parse --table {args.table}")
+    tables = [args.table] if args.table else list(BUILDERS)
+    for name in tables:
+        log.info("parse %s", name)
+        BUILDERS[name](settings)
+    return 0
+
+
+def cmd_validate(args: argparse.Namespace, settings: Settings) -> int:
+    from .validate import run_validation
+
+    return 0 if run_validation(settings) else 1
+
+
+def cmd_export(args: argparse.Namespace, settings: Settings) -> int:
+    from .export import export
+
+    for path in export(settings, args.format):
+        log.info("exportado: %s", path)
+    return 0
+
+
+def run(args: argparse.Namespace, settings: Settings) -> int:
+    """Despacha o subcomando."""
+    handlers = {"crawl": cmd_crawl, "parse": cmd_parse, "validate": cmd_validate, "export": cmd_export}
+    return handlers[args.command](args, settings)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    try:
+        settings = settings_from_args(args)
+    except ValueError as exc:
+        print(f"erro de configuração: {exc}", file=sys.stderr)
+        return 1
+    setup_logging(settings)
+    log.info("comando=%s date=%s data_dir=%s", args.command, settings.date, settings.data_dir)
+    return run(args, settings)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
