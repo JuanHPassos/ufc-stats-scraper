@@ -261,11 +261,20 @@ Esta seção serve de contexto para quem implementar, incluindo assistentes de I
   | estatísticas por round (`round_stats`) | **1999** | antes disso, 84–95 % conforme o ano |
   | golpes significativos por alvo/posição | **1999** | mesma cobertura de `round_stats` |
   | tempo de controle (`ctrl_seconds`) | **2000** | 0 % até 1998, 50 % em 1999, 100 % desde 2000 |
-  | placares dos juízes (em decisões) | **2003** | 0 % até 2000, 75 % em 2001, 80 % em 2002 |
+  | placares dos juízes (em decisões) | **2010** | ≥ 95 % já em 2003, mas 2005 (94,7 %) e 2009 (92,4 %) recaem |
+  | **ordem `fighter_a`/`fighter_b`** | **2010** | ver abaixo — o mais importante dos quatro |
+
+  **Achado que mudou uma decisão da implementação:** até 2009 o site lista o **vencedor
+  primeiro** também na página da luta (`winner_id == fighter_a_id` em 1 250/1 250 lutas
+  de 1994–2009). Só a partir de 2010 a ordem passa a refletir os cantos (54–62 % de
+  vitórias do primeiro, a vantagem típica do canto vermelho). Usar A/B como se fosse
+  canto em lutas anteriores a 2010 é **vazamento de dados perfeito**. A coluna
+  `fighter_order_source` não distingue isso (a fonte é a mesma página); a divisão é
+  puramente temporal.
 
   Para a hipótese do grappling, que depende de `ctrl_seconds` e quedas, o recorte
   seguro é **2000 em diante** (8 673 das 8 897 lutas, 97,5 %). Se a análise usar
-  placares de juízes, o recorte é 2003.
+  ordem A/B ou placares de juízes, o recorte é **2010** (7 245 lutas, 81,4 %).
 
 - [x] ~~Formato final: Parquet ou SQLite?~~ **Ambos são gerados** (`export --format parquet|sqlite`),
   com os mesmos tipos explícitos. Parquet para carregar em pandas; SQLite quando for

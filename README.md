@@ -148,10 +148,14 @@ Decisões já tomadas (spec §8 e implementação); não reverter sem conversa n
    e incluem lutas posteriores a qualquer luta específica. Usá-los como feature
    pré-luta é vazamento de dados. Features pré-luta devem ser calculadas a partir de
    `fights`/`fight_stats`, por data.
-2. **`fighter_a`/`fighter_b` seguem a ordem da página da luta (cantos)**, não a do
-   card — no card o vencedor é sempre listado primeiro, o que tornaria A ≈ vencedor.
-   Na página da luta, A vence ~55 % das vezes (a taxa típica do canto vermelho). O
-   scraper **não sorteia**; qualquer simetrização é decisão da análise.
+2. **`fighter_a`/`fighter_b` só refletem os cantos a partir de 2010.** A ordem vem da
+   página da luta (o card sempre lista o vencedor primeiro), mas **até 2009 a própria
+   página também listava o vencedor primeiro**: `winner_id == fighter_a_id` em
+   1 250/1 250 lutas de 1994–2009. De 2010 em diante a taxa cai para 54–62 %, compatível
+   com a vantagem do canto vermelho. Tratar A/B como canto em lutas pré-2010 é vazamento
+   de dados perfeito — filtre por ano ou simetrize. O scraper **não sorteia**; qualquer
+   simetrização é decisão da análise. `coverage_report.md` traz a coluna
+   `pct_winner_is_a` por ano.
 3. **Placares dos juízes**: o site não os lista na ordem dos lutadores. `score_1`/`score_2`
    são a ordem literal do site; `score_a`/`score_b` são atribuídos ao lutador pelo lado
    favorecido pela maioria dos juízes (= vencedor). Em empates e no contests

@@ -532,12 +532,26 @@ método/categoria não mapeados que não esteja justificado nas notas.
   ("canto vermelho = A"). O card só entra como fallback quando a página falta, marcado na
   coluna `fighter_order_source` (`fight_page` | `card`). A tabela de estatísticas da página
   segue a mesma ordem das pessoas (333/333) — bom para a Parte 5.
+  - ⚠️ **CORREÇÃO (2026-09-22, coleta completa): os 55% valiam só para 2016+.** Medido sobre
+    as 8 897 lutas, a página da luta **também lista o vencedor primeiro até 2009**
+    (`winner_id == fighter_a_id` em 1 250/1 250 lutas de 1994–2009); a ordem só passa a
+    refletir os cantos em **2010** (54–62% daí em diante, ano a ano). A decisão de usar a
+    página segue correta (o card é vencedor-primeiro em 100% dos anos), mas **a ordem A/B
+    não carrega informação de canto antes de 2010** e usá-la como tal é vazamento perfeito.
+    Registrado no `coverage_report.md` (coluna `pct_winner_is_a` e seção própria), na spec §8,
+    no README e no docstring de `parse/fights.py`. Lição: medir uma convenção do site numa
+    fatia recente e generalizar para 30 anos de dados.
 - **DECISÃO 2 — placares dos juízes.** O site NÃO lista os placares na ordem dos lutadores:
   em 333/333 decisões o vencedor é o 2º número. Em vez de confiar nessa convenção, o builder
   atribui `score_a/score_b` pelo lado favorecido pela **maioria** dos juízes (= vencedor por
   definição). O JSON guarda também `score_1/score_2` (ordem literal). Em empate/NC,
   `score_a/b` são nulos. Se a convenção "vencedor 2º" falhar em alguma era, sai WARNING
   (`placares não favorecem o 2º número`) — checar nos eventos antigos.
+  - ✅ **Confirmado (2026-09-22, coleta completa):** a convenção vale em 3 965/3 966 decisões
+    (99,97%), uniformemente em todas as eras (1994–2009: 315/315; 2010–2019: 1 992/1 993;
+    2020+: 1 658/1 658). A única exceção é a luta `7d947be4c15ebe36`, em que o próprio site é
+    inconsistente. Como o código atribui por maioria e não pela convenção, `score_a`/`score_b`
+    saíram preenchidos em 3 965 e nulos só nessa luta.
 - **DECISÃO 3 — categoria bruta vem da página da luta.** O card mostra só `Flyweight` +
   `belt.png` tanto para `UFC Flyweight Title Bout` quanto para `Road to UFC 4 Flyweight
   Tournament Title Bout` / `Ultimate Fighter 33 … Tournament Title Bout`. `is_title_fight` =

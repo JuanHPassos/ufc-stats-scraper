@@ -14,10 +14,15 @@ Função pura: HTML -> dict. Estrutura relevante da página:
 Os placares dos juízes são lidos item a item (nunca do texto junto), porque em
 lutas overturned o texto livre ("Failed Drug Test by X") antecede os placares.
 
-ORDEM DOS LUTADORES: esta página é a fonte de `fighter_a_id`/`fighter_b_id`.
-No card do evento o vencedor é sempre listado primeiro (ordem sem informação);
-aqui a ordem é a dos cantos (o 1º vence ~55% das vezes, taxa típica do canto
-vermelho). A categoria bruta também vem daqui, porque só esta página distingue
+ORDEM DOS LUTADORES: esta página é a fonte de `fighter_a_id`/`fighter_b_id`, porque
+no card do evento o vencedor é SEMPRE listado primeiro (ordem sem informação).
+Atenção: até 2009 a página da luta também listava o vencedor primeiro (medido na
+coleta completa: 1 250/1 250 lutas de 1994–2009); só de 2010 em diante a ordem
+reflete os cantos (o 1º vence 54–62%, a vantagem do canto vermelho). O scraper
+registra a ordem como o site dá; cabe à análise filtrar por ano ou simetrizar —
+ver `coverage_report.md` (`pct_winner_is_a`).
+
+A categoria bruta também vem daqui, porque só esta página distingue
 "UFC … Title Bout" de "Road to UFC … Tournament Title Bout".
 """
 

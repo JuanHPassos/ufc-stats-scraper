@@ -189,6 +189,22 @@ def test_examples_are_truncated():
 # -- cobertura ----------------------------------------------------------------
 
 
+def test_order_informative_from():
+    cov = pd.DataFrame({"year": [2008, 2009, 2010, 2011], "pct_winner_is_a": [100.0, 100.0, 61.2, 59.7]})
+    assert v.order_informative_from(cov) == 2010  # deixa de ser "vencedor primeiro"
+    # nunca foi vencedor-primeiro: informativa desde o começo
+    assert v.order_informative_from(pd.DataFrame({"year": [2015, 2016], "pct_winner_is_a": [55.0, 57.0]})) == 2015
+    # sempre vencedor-primeiro: não há ano informativo
+    assert v.order_informative_from(pd.DataFrame({"year": [1995, 1996], "pct_winner_is_a": [100.0, 100.0]})) is None
+    assert v.order_informative_from(pd.DataFrame(columns=["year"])) is None
+
+
+def test_coverage_includes_winner_is_a():
+    t = good_tables()  # F1: A vence; F2: empate (não conta)
+    cov = v.coverage_by_year(t)
+    assert cov.pct_winner_is_a.iloc[0] == 100.0
+
+
 def test_coverage_by_year_and_reliable_from():
     t = good_tables()
     cov = v.coverage_by_year(t)
@@ -210,6 +226,8 @@ def test_reports_are_written(tmp_path):
     assert "PASSOU" in text and "check_round_sums" in text and "❌" not in text
     answers = v.write_coverage_report(t, tmp_path / "coverage_report.md")
     assert answers["ctrl_reliable_from"] == 2024
+    assert "order_informative_from" in answers and "judges_reliable_from" in answers
+    assert "vencedor primeiro" in (tmp_path / "coverage_report.md").read_text(encoding="utf-8")
     assert "U-DEC" in (tmp_path / "coverage_report.md").read_text(encoding="utf-8")
 
 

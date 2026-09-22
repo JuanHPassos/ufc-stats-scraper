@@ -251,10 +251,17 @@ def run_checks(t: Tables) -> dict[str, dict[str, list[str]]]:
 # -- cobertura (não bloqueia) -------------------------------------------------
 
 RELIABLE_THRESHOLD = 0.95
+# Acima disto, a ordem A/B é "vencedor primeiro" e não carrega informação de canto.
+WINNER_FIRST_THRESHOLD = 95.0
 
 
 def coverage_by_year(t: Tables) -> pd.DataFrame:
-    """Por ano: nº de lutas e % de lutas com fight_stats, round_stats, ctrl, alvo/posição, juízes."""
+    """Por ano: nº de lutas, % com cada tipo de dado, e % em que o vencedor é o `fighter_a`.
+
+    `pct_winner_is_a` mede se a ordem A/B carrega informação: 100 % significa que o site
+    listou o vencedor primeiro (a ordem não diz nada sobre cantos e é vazamento puro);
+    perto de 55 % significa ordem por canto (vantagem típica do canto vermelho).
+    """
     f = t.fights.merge(t.events[["event_id", "date"]], on="event_id", how="left")
     f["year"] = pd.to_datetime(f.date, errors="coerce").dt.year
     fs = t.fight_stats
@@ -267,8 +274,10 @@ def coverage_by_year(t: Tables) -> pd.DataFrame:
     for year, g in f.groupby("year"):
         n = len(g)
         dec = decisions[decisions.year == year]
+        decided = g[(g.result_type == "win") & g.winner_id.notna()]
         rows.append({
             "year": int(year), "fights": n,
+            "pct_winner_is_a": round(100 * (decided.winner_id == decided.fighter_a_id).mean(), 1) if len(decided) else None,
             "pct_fight_stats": round(100 * g.fight_id.isin(with_stats).mean(), 1),
             "pct_round_stats": round(100 * g.fight_id.isin(with_rounds).mean(), 1),
             "pct_ctrl": round(100 * g.fight_id.isin(with_ctrl).mean(), 1),
@@ -277,6 +286,19 @@ def coverage_by_year(t: Tables) -> pd.DataFrame:
             "pct_referee": round(100 * g.referee.notna().mean(), 1),
         })
     return pd.DataFrame(rows)
+
+
+def order_informative_from(cov: pd.DataFrame) -> int | None:
+    """Primeiro ano a partir do qual a ordem A/B deixa de ser "vencedor primeiro" e
+    passa a refletir os cantos (e não regride depois)."""
+    if cov.empty or "pct_winner_is_a" not in cov:
+        return None
+    ok = cov.sort_values("year")
+    winner_first = ok.loc[ok.pct_winner_is_a.fillna(0) >= WINNER_FIRST_THRESHOLD, "year"]
+    if winner_first.empty:
+        return int(ok.year.min())
+    after = ok[ok.year > winner_first.max()]
+    return int(after.year.min()) if len(after) else None
 
 
 def reliable_from(cov: pd.DataFrame, col: str) -> int | None:
@@ -312,12 +334,23 @@ def write_coverage_report(t: Tables, path: Path) -> dict:
         "ctrl_reliable_from": reliable_from(cov, "pct_ctrl"),
         "rounds_reliable_from": reliable_from(cov, "pct_round_stats"),
         "target_reliable_from": reliable_from(cov, "pct_target_position"),
+        "judges_reliable_from": reliable_from(cov, "pct_judges_on_decisions"),
+        "order_informative_from": order_informative_from(cov),
     }
     parts = ["# Relatório de cobertura\n", f"Coleta: `{path.parent.name}`. Não bloqueia a validação.\n"]
     parts.append("## A partir de que ano cada campo é confiável (≥ 95 % das lutas, sem regressão depois)\n")
     parts.append(f"- tempo de controle (`ctrl_seconds`): **{answers['ctrl_reliable_from']}**")
     parts.append(f"- estatísticas por round (`round_stats`): **{answers['rounds_reliable_from']}**")
-    parts.append(f"- alvo/posição dos golpes significativos: **{answers['target_reliable_from']}**\n")
+    parts.append(f"- alvo/posição dos golpes significativos: **{answers['target_reliable_from']}**")
+    parts.append(f"- placares dos juízes (em decisões): **{answers['judges_reliable_from']}**\n")
+    parts.append("## Ordem dos lutadores (`fighter_a` / `fighter_b`)\n")
+    parts.append(
+        f"A ordem A/B só reflete os cantos a partir de **{answers['order_informative_from']}**. "
+        "Antes disso o site lista o **vencedor primeiro** (`pct_winner_is_a` = 100 na tabela "
+        "abaixo), então usar A/B como se fosse canto nessas lutas é vazamento de dados: "
+        "`winner_id == fighter_a_id` por construção. A partir desse ano a taxa cai para a "
+        "faixa de 54–62 %, compatível com a vantagem do canto vermelho.\n"
+    )
     parts.append("## Cobertura por ano (% de lutas com o dado)\n")
     parts.append(cov.to_markdown(index=False) if not cov.empty else "_sem dados_")
     parts.append("\n## Lutas por método e ano\n")
@@ -360,7 +393,9 @@ def run_validation(settings: Settings) -> bool:
                 log.error("%s/%s: %s", group, name, " | ".join(viol))
             else:
                 log.info("%s/%s: ok", group, name)
-    log.info("cobertura: ctrl confiável desde %s, rounds desde %s, alvo/posição desde %s",
-             answers["ctrl_reliable_from"], answers["rounds_reliable_from"], answers["target_reliable_from"])
+    log.info("cobertura: ctrl desde %s, rounds desde %s, alvo/posição desde %s, placares desde %s; "
+             "ordem A/B informativa desde %s",
+             answers["ctrl_reliable_from"], answers["rounds_reliable_from"], answers["target_reliable_from"],
+             answers["judges_reliable_from"], answers["order_informative_from"])
     log.info("validação %s — relatórios em %s", "PASSOU" if ok else "FALHOU", out)
     return ok
