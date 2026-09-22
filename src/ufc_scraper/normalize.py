@@ -93,13 +93,6 @@ _TIME_FORMAT_RE = re.compile(r"^(\d+)\s*Rnd")
 _ROUND_DURATIONS_RE = re.compile(r"\((\d+(?:-\d+)*)\)")
 
 
-def parse_time_format(s: str | None) -> int | None:
-    """"5 Rnd (5-5-5-5-5)" -> 5; "1 Rnd + OT (12-3)" -> 1; "No Time Limit" -> None."""
-    t = clean_text(s)
-    if t is None:
-        return None
-    m = _TIME_FORMAT_RE.match(t)
-    return int(m.group(1)) if m else None
 
 
 def round_durations(s: str | None) -> list[int] | None:
@@ -112,6 +105,24 @@ def round_durations(s: str | None) -> list[int] | None:
         return None
     return [int(x) for x in m.group(1).split("-")]
 
+
+def parse_time_format(s: str | None) -> int | None:
+    """Número máximo de rounds que a luta podia ter.
+
+    "3 Rnd (5-5-5)" -> 3; "5 Rnd (5-5-5-5-5)" -> 5; "No Time Limit" -> None.
+
+    Nos formatos antigos com overtime o prefixo conta só os rounds regulares, mas a
+    luta podia ir além: "1 Rnd + OT (12-3)" -> 2 e "1 Rnd + 2OT (15-3-3)" -> 3. Por
+    isso o parêntese (um tempo por round) manda; o prefixo "N Rnd" é o fallback.
+    """
+    t = clean_text(s)
+    if t is None:
+        return None
+    durations = round_durations(t)
+    if durations:
+        return len(durations)
+    m = _TIME_FORMAT_RE.match(t)
+    return int(m.group(1)) if m else None
 
 _warned_formats: set[str] = set()
 DEFAULT_ROUND_MINUTES = 5

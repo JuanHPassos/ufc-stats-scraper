@@ -30,7 +30,7 @@ SCHEMA: dict[str, dict[str, str]] = {
     "fights": {
         "fight_id": _STR, "event_id": _STR, "card_position": _INT,
         "fighter_a_id": _STR, "fighter_b_id": _STR, "fighter_order_source": _STR, "winner_id": _STR, "result_type": _STR,
-        "weight_class": _STR, "weight_class_raw": _STR, "is_title_fight": _BOOL, "is_women": _BOOL, "bonuses": _STR,
+        "weight_class": _STR, "weight_class_card": _STR, "weight_class_raw": _STR, "is_title_fight": _BOOL, "is_women": _BOOL, "bonuses": _STR,
         "method": _STR, "method_raw": _STR, "method_detail": _STR, "went_to_decision": _BOOL,
         "end_round": _INT, "end_time_seconds": _INT, "total_fight_seconds": _INT, "scheduled_rounds": _INT, "time_format_raw": _STR,
         "referee": _STR, "judges_scores": _STR, "details_raw": _STR, "scraped_at": _DATE, "source_url": _STR,

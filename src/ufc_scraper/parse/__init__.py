@@ -16,6 +16,7 @@ import pandas as pd
 
 from ..config import Settings
 from ..paths import cache_path, processed_dir, raw_dir
+from ..normalize import WEIGHT_CLASSES
 from .events import EVENTS_COLUMNS, parse_event_card, parse_events_list
 from .fight_stats import (
     SIG_CHECK_COLUMNS,
@@ -34,7 +35,7 @@ log = logging.getLogger(__name__)
 FIGHTS_COLUMNS = [
     "fight_id", "event_id", "card_position",
     "fighter_a_id", "fighter_b_id", "fighter_order_source", "winner_id", "result_type",
-    "weight_class", "weight_class_raw", "is_title_fight", "is_women", "bonuses",
+    "weight_class", "weight_class_card", "weight_class_raw", "is_title_fight", "is_women", "bonuses",
     "method", "method_raw", "method_detail", "went_to_decision",
     "end_round", "end_time_seconds", "total_fight_seconds", "scheduled_rounds", "time_format_raw",
     "referee", "judges_scores", "details_raw",
@@ -146,13 +147,27 @@ def _merge_fight(row: dict, summary: dict | None) -> int:
         log.warning("luta %s: lutadores da página %s ≠ card %s; mantendo card", fid, page_pair, card_pair)
         row["fighter_order_source"] = "card"
 
+    # Categoria: a página distingue os tipos de título, mas nas eras antigas o título da
+    # página é o nome do torneio ("UFC 7 Tournament Title Bout", "UFC Superfight
+    # Championship Bout"), sem categoria de peso — aí o card ("Open Weight") é a fonte boa.
+    # Quando as duas dão categorias conhecidas e diferentes, é inconsistência do próprio
+    # site (divisões renomeadas nos anos 90): mantém-se a da página e a do card fica em
+    # `weight_class_card` para a análise decidir.
+    row["weight_class_card"] = row["weight_class"]
     if summary["weight_class_raw"]:
         row["weight_class_raw"] = summary["weight_class_raw"]
-        if summary["weight_class"] != row["weight_class"]:
-            mismatches += 1
-            log.warning("luta %s: categoria página=%r ≠ card=%r; usando página", fid, summary["weight_class"], row["weight_class"])
-        row["weight_class"] = summary["weight_class"]
-        row["is_women"] = summary["is_women"]
+        page_wc = summary["weight_class"]
+        if page_wc not in WEIGHT_CLASSES:
+            log.debug("luta %s: categoria da página %r não é peso; usando card %r", fid, page_wc, row["weight_class"])
+        else:
+            if page_wc != row["weight_class"]:
+                mismatches += 1
+                log.warning(
+                    "luta %s: categoria página=%r ≠ card=%r; usando página (card fica em weight_class_card)",
+                    fid, page_wc, row["weight_class"],
+                )
+            row["weight_class"] = page_wc
+        row["is_women"] = summary["is_women"] or bool(row.get("is_women"))
     row["is_title_fight"] = bool(row.get("is_title_fight")) or bool(check.get("is_title_fight"))
 
     for field in _CHECK_FIELDS:

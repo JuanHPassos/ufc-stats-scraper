@@ -83,8 +83,11 @@ def test_parse_mmss_invalid():
         ("5 Rnd (5-5-5-5-5)", 5, [5, 5, 5, 5, 5]),
         ("3 Rnd (5-5-5)", 3, [5, 5, 5]),
         ("3 Rnd (10-5-5)", 3, [10, 5, 5]),  # visto no site em 2026
-        ("1 Rnd + OT (12-3)", 1, [12, 3]),
-        ("1 Rnd + 2OT (15-3-3)", 1, [15, 3, 3]),
+        # com overtime o prefixo conta só os rounds regulares; o parêntese dá o máximo real
+        ("1 Rnd + OT (12-3)", 2, [12, 3]),
+        ("1 Rnd + 2OT (15-3-3)", 3, [15, 3, 3]),
+        ("1 Rnd + OT (31-5)", 2, [31, 5]),
+        ("1 Rnd (20)", 1, [20]),
         ("No Time Limit", None, None),
     ],
 )
